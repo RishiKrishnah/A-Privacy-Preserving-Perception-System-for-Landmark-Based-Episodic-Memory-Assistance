@@ -20,6 +20,22 @@ load_dotenv(SERVER_ROOT / ".env")
 app = Flask(__name__)
 CORS(app, resources={r"/api/*": {"origins": "*"}})
 
+
+@app.get("/")
+def home():
+    return jsonify(
+        {
+            "service": "Privacy-Preserving Episodic Memory Assistant",
+            "status": "ok",
+            "api": {
+                "health": "/api/health",
+                "memories": "/api/memories/recent",
+                "query": "/api/query",
+            },
+        }
+    )
+
+
 mode = os.getenv("EDGE_MODE", "local")
 local_db = os.getenv(
     "LOCAL_DB_PATH", str(SERVER_ROOT.parent / "edge_device" / "data" / "memory.db")
