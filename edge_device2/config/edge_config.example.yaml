@@ -1,0 +1,102 @@
+camera:
+  index: 0
+  width: 1280
+  height: 720
+  fps: 30
+  backend: auto
+  reconnect_attempts: 5
+  reconnect_delay_seconds: 1.0
+
+perception:
+  model: yolov8s-world.pt
+  confidence: 0.20
+  landmark_confidence: 0.18
+  iou: 0.45
+  imgsz: 960
+  device: auto
+  max_detections: 40
+  prompts:
+    person: [person]
+    wallet: [wallet, purse, small wallet]
+    keys: [keys, keyring, key]
+    phone: [phone, cell phone, smartphone]
+    glasses: [glasses, eyeglasses, spectacles]
+    bottle: [bottle, water bottle]
+    laptop: [laptop, notebook computer]
+    backpack: [backpack, bag]
+    book: [book, notebook]
+    cup: [cup, mug]
+    table: [table, tabletop, dining table, desk table]
+    desk: [desk, office desk, study desk, work desk]
+    shelf: [shelf, shelving, bookshelf]
+    bed: [bed, mattress]
+    cupboard: [cupboard, cabinet, wardrobe]
+
+objects:
+  personal: [wallet, keys, phone, glasses, bottle, laptop, backpack, book, cup]
+  landmarks: [table, desk, shelf, bed, cupboard]
+  aliases:
+    cell phone: phone
+    smartphone: phone
+    keyring: keys
+    eyeglasses: glasses
+    spectacles: glasses
+    water bottle: bottle
+    notebook computer: laptop
+    bag: backpack
+    mug: cup
+    tabletop: table
+    dining table: table
+    desk table: table
+    office desk: desk
+    study desk: desk
+    work desk: desk
+    shelving: shelf
+    bookshelf: shelf
+    mattress: bed
+    cabinet: cupboard
+    wardrobe: cupboard
+
+tracking:
+  max_missing_frames: 15
+  max_match_distance_px: 140
+  min_iou_for_match: 0.05
+
+hands:
+  enabled: true
+  max_num_hands: 2
+  min_detection_confidence: 0.45
+  min_tracking_confidence: 0.45
+  model_path: data/hand_landmarker.task
+  auto_download: true
+
+events:
+  enabled: true
+  contact_distance_px: 110
+  movement_distance_px: 14
+  min_moving_frames: 3
+  contact_frames: 3
+  release_frames: 3
+  stable_frames: 8
+  landmark_max_gap_px: 180
+  landmark_vertical_tolerance_px: 140
+  landmark_history_frames: 8
+  landmark_confirmations: 3
+  min_event_confidence: 0.55
+  cooldown_seconds: 2.0
+  emit_move: true
+  move_min_frames: 8
+
+database:
+  path: data/memory.db
+  dedup_window_seconds: 4.0
+
+api:
+  host: 127.0.0.1
+  port: 9000
+
+display:
+  show_window: true
+  show_fps: true
+  draw_boxes: true
+  draw_hands: true

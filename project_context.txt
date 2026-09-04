@@ -1,0 +1,4916 @@
+PROJECT CONTEXT EXPORT
+======================
+
+This file contains the directory structure and text/code/configuration
+contents of a software project.
+
+IMPORTANT:
+- The directory structure is listed first.
+- Each included file is identified using:
+    # FILE: relative/path/to/file
+- Binary files, model weights, databases, virtual environments,
+  caches, and archives are intentionally excluded.
+- Treat the contents below as the source of truth for understanding
+  the current implementation.
+- Do not assume that excluded binary/database files contain information
+  that is not represented in the extracted source/configuration.
+
+The purpose of this export is to allow an AI assistant to inspect
+the complete source-level project without requiring the original ZIP.
+
+
+PROJECT DIRECTORY STRUCTURE
+================================================================================
+
+Landmark-Based-Episodic-Memory-Assistance_server-client/
+├── edge_device/
+│   ├── config/
+│   │   └── edge_config.example.yaml
+│   ├── data/
+│   ├── src/
+│   │   ├── __init__.py
+│   │   ├── demo_seed.py
+│   │   ├── edge_api.py
+│   │   └── memory_store.py
+│   ├── README.md
+│   └── requirements.txt
+├── edge_device1/
+│   ├── config/
+│   │   ├── edge_config.example.yaml
+│   │   └── edge_config.yaml
+│   ├── data/
+│   ├── docs/
+│   │   ├── ARCHITECTURE.md
+│   │   ├── CHANGES.md
+│   │   └── TESTING.md
+│   ├── src/
+│   │   ├── events/
+│   │   │   ├── __init__.py
+│   │   │   └── event_recognizer.py
+│   │   ├── perception/
+│   │   │   ├── __init__.py
+│   │   │   ├── detector.py
+│   │   │   ├── hand_tracker.py
+│   │   │   └── landmarks.py
+│   │   ├── __init__.py
+│   │   ├── config.py
+│   │   ├── edge_api.py
+│   │   ├── inspect_memory.py
+│   │   ├── main.py
+│   │   └── memory_store.py
+│   ├── tests/
+│   │   ├── __init__.py
+│   │   └── test_event_recognizer.py
+│   ├── weights/
+│   │   ├── clip/
+│   │   └── README.txt
+│   ├── .gitignore
+│   ├── README.md
+│   └── requirements.txt
+├── edge_device2/
+│   ├── config/
+│   │   ├── edge_config.example.yaml
+│   │   └── edge_config.yaml
+│   ├── data/
+│   ├── docs/
+│   │   ├── ARCHITECTURE.md
+│   │   ├── CHANGES.md
+│   │   └── TESTING.md
+│   ├── src/
+│   │   ├── events/
+│   │   │   ├── __init__.py
+│   │   │   └── event_recognizer.py
+│   │   ├── perception/
+│   │   │   ├── __init__.py
+│   │   │   ├── detector.py
+│   │   │   ├── hand_tracker.py
+│   │   │   └── landmarks.py
+│   │   ├── __init__.py
+│   │   ├── config.py
+│   │   ├── edge_api.py
+│   │   ├── inspect_memory.py
+│   │   ├── main.py
+│   │   └── memory_store.py
+│   ├── tests/
+│   │   ├── __init__.py
+│   │   └── test_event_recognizer.py
+│   ├── weights/
+│   │   ├── clip/
+│   │   └── README.txt
+│   ├── .gitignore
+│   ├── README.md
+│   └── requirements.txt
+├── server/
+│   ├── app/
+│   │   ├── edge/
+│   │   │   ├── __init__.py
+│   │   │   └── edge_client.py
+│   │   ├── routes/
+│   │   │   ├── __init__.py
+│   │   │   ├── memory.py
+│   │   │   └── query.py
+│   │   ├── services/
+│   │   │   ├── __init__.py
+│   │   │   ├── gemini_service.py
+│   │   │   └── memory_service.py
+│   │   ├── __init__.py
+│   │   └── app.py
+│   ├── README.md
+│   └── requirements.txt
+├── website/
+│   ├── static/
+│   │   ├── css/
+│   │   │   └── style.css
+│   │   └── js/
+│   │       └── app.js
+│   ├── templates/
+│   │   └── index.html
+│   └── README.md
+├── .gitignore
+├── export_project_for_chatgpt.py
+└── README.md
+
+================================================================================
+
+PROJECT FILE CONTENTS
+================================================================================
+
+
+################################################################################
+# FILE: .gitignore
+################################################################################
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.env
+.env.*
+!.env.example
+
+# Runtime databases
+*.db
+*.sqlite
+*.sqlite3
+
+# Camera/media
+*.mp4
+*.avi
+*.mov
+*.jpg
+*.jpeg
+*.png
+
+# Logs
+*.log
+
+# OS/IDE
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+
+
+################################################################################
+# FILE: edge_device/config/edge_config.example.yaml
+################################################################################
+
+database_path: data/memory.db
+edge_host: 0.0.0.0
+edge_port: 9000
+
+
+
+################################################################################
+# FILE: edge_device/README.md
+################################################################################
+
+# Edge Device
+
+This component is responsible for producing and storing semantic episodic memories.
+
+Production responsibility:
+- camera/perception runs here
+- convert observations to semantic events
+- store semantic records
+- expose only semantic records to the server
+
+The included Python code is a hardware-neutral reference implementation. It is intentionally separated from the server so the perception implementation can later be replaced by ESP32/ESP32-S3 firmware or another edge computer.
+
+## Database
+
+The prototype database is `data/memory.db`.
+
+Example record:
+
+```json
+{
+  "timestamp": "2026-09-03T18:32:25",
+  "subject": "wallet",
+  "action": "PLACE",
+  "landmark": "shelf"
+}
+```
+
+No image/video column is required.
+
+## Edge HTTP interface
+
+`src/edge_api.py` provides a reference semantic-data HTTP service:
+
+- `GET /health`
+- `GET /memory/recent?limit=20`
+- `GET /memory/search?q=wallet&limit=20`
+- `GET /memory/events?from=...&to=...`
+
+A constrained embedded device does not have to run this exact Python service. It defines the contract that an ESP32-class implementation can reproduce.
+
+
+
+################################################################################
+# FILE: edge_device/requirements.txt
+################################################################################
+
+Flask>=3.0,<4
+
+
+
+################################################################################
+# FILE: edge_device/src/__init__.py
+################################################################################
+
+
+
+
+
+################################################################################
+# FILE: edge_device/src/demo_seed.py
+################################################################################
+
+from datetime import datetime, timedelta
+from pathlib import Path
+import sys
+
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+from memory_store import MemoryStore
+
+db = ROOT / "data" / "memory.db"
+store = MemoryStore(db)
+store.initialize()
+
+base = datetime.now().replace(microsecond=0)
+demo = [
+    ("wallet", "PLACE", "shelf", "wallet placed on shelf"),
+    ("phone", "PICK", "desk", "phone picked from desk"),
+    ("keys", "PLACE", "table", "keys placed on table"),
+    ("laptop", "INTERACT", "desk", "interaction with laptop"),
+]
+
+for i, (subject, action, landmark, details) in enumerate(demo):
+    store.add_event(
+        (base - timedelta(minutes=20 - i * 5)).isoformat(),
+        subject, action, landmark, details
+    )
+
+print(f"Seeded semantic memory database: {db}")
+
+
+
+################################################################################
+# FILE: edge_device/src/edge_api.py
+################################################################################
+
+from pathlib import Path
+from flask import Flask, jsonify, request
+
+from memory_store import MemoryStore
+
+ROOT = Path(__file__).resolve().parents[1]
+DB = ROOT / "data" / "memory.db"
+
+store = MemoryStore(DB)
+store.initialize()
+app = Flask(__name__)
+
+
+@app.get("/health")
+def health():
+    return jsonify({"status": "ok", "service": "edge-semantic-memory"})
+
+
+@app.get("/memory/recent")
+def recent():
+    limit = request.args.get("limit", 20, type=int)
+    return jsonify({"memories": store.recent(limit)})
+
+
+@app.get("/memory/search")
+def search():
+    query = request.args.get("q", "").strip()
+    if not query:
+        return jsonify({"error": "q is required"}), 400
+    limit = request.args.get("limit", 20, type=int)
+    return jsonify({"memories": store.search(query, limit)})
+
+
+@app.get("/memory/events")
+def events():
+    start = request.args.get("from")
+    end = request.args.get("to")
+    limit = request.args.get("limit", 100, type=int)
+    return jsonify({"memories": store.events(start, end, limit)})
+
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=9000)
+
+
+
+################################################################################
+# FILE: edge_device/src/memory_store.py
+################################################################################
+
+from __future__ import annotations
+
+import sqlite3
+from pathlib import Path
+from typing import Any
+
+
+class MemoryStore:
+    """Small semantic-memory SQLite store.
+
+    This is the prototype storage layer. The public methods form the
+    hardware-independent contract used by the edge API.
+    """
+
+    def __init__(self, db_path: str | Path):
+        self.db_path = Path(db_path)
+        self.db_path.parent.mkdir(parents=True, exist_ok=True)
+
+    def connect(self) -> sqlite3.Connection:
+        conn = sqlite3.connect(self.db_path)
+        conn.row_factory = sqlite3.Row
+        return conn
+
+    def initialize(self) -> None:
+        with self.connect() as conn:
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS memory_events (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    timestamp TEXT NOT NULL,
+                    subject TEXT NOT NULL,
+                    action TEXT NOT NULL,
+                    landmark TEXT,
+                    details TEXT
+                )
+                """
+            )
+            conn.commit()
+
+    def add_event(
+        self,
+        timestamp: str,
+        subject: str,
+        action: str,
+        landmark: str | None = None,
+        details: str | None = None,
+    ) -> None:
+        with self.connect() as conn:
+            conn.execute(
+                """INSERT INTO memory_events
+                   (timestamp, subject, action, landmark, details)
+                   VALUES (?, ?, ?, ?, ?)""",
+                (timestamp, subject, action, landmark, details),
+            )
+            conn.commit()
+
+    def recent(self, limit: int = 20) -> list[dict[str, Any]]:
+        limit = max(1, min(int(limit), 100))
+        with self.connect() as conn:
+            rows = conn.execute(
+                """SELECT id, timestamp, subject, action, landmark, details
+                   FROM memory_events
+                   ORDER BY timestamp DESC, id DESC
+                   LIMIT ?""",
+                (limit,),
+            ).fetchall()
+        return [dict(r) for r in rows]
+
+    def search(self, query: str, limit: int = 20) -> list[dict[str, Any]]:
+        limit = max(1, min(int(limit), 100))
+        q = f"%{query.strip()}%"
+        with self.connect() as conn:
+            rows = conn.execute(
+                """SELECT id, timestamp, subject, action, landmark, details
+                   FROM memory_events
+                   WHERE subject LIKE ?
+                      OR action LIKE ?
+                      OR COALESCE(landmark, '') LIKE ?
+                      OR COALESCE(details, '') LIKE ?
+                   ORDER BY timestamp DESC, id DESC
+                   LIMIT ?""",
+                (q, q, q, q, limit),
+            ).fetchall()
+        return [dict(r) for r in rows]
+
+    def events(self, start: str | None = None, end: str | None = None,
+               limit: int = 100) -> list[dict[str, Any]]:
+        limit = max(1, min(int(limit), 200))
+        clauses = []
+        params: list[Any] = []
+        if start:
+            clauses.append("timestamp >= ?")
+            params.append(start)
+        if end:
+            clauses.append("timestamp <= ?")
+            params.append(end)
+
+        where = (" WHERE " + " AND ".join(clauses)) if clauses else ""
+        params.append(limit)
+        with self.connect() as conn:
+            rows = conn.execute(
+                f"""SELECT id, timestamp, subject, action, landmark, details
+                    FROM memory_events
+                    {where}
+                    ORDER BY timestamp DESC, id DESC
+                    LIMIT ?""",
+                params,
+            ).fetchall()
+        return [dict(r) for r in rows]
+
+
+
+################################################################################
+# FILE: edge_device1/.gitignore
+################################################################################
+
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+data/*.db
+data/*.sqlite
+data/*.sqlite3
+*.log
+.DS_Store
+.vscode/
+.idea/
+
+
+
+################################################################################
+# FILE: edge_device1/config/edge_config.example.yaml
+################################################################################
+
+camera:
+  index: 0
+  width: 1280
+  height: 720
+  fps: 30
+
+perception:
+  model: yolov8s-world.pt
+  confidence: 0.30
+  iou: 0.50
+
+  # Change this list to the objects important to your scenario.
+  classes:
+    - person
+    - cell phone
+    - wallet
+    - keys
+    - laptop
+    - backpack
+    - bottle
+    - book
+    - cup
+
+events:
+  enabled: true
+
+  # A tracked object is considered moving when its center moves
+  # at least this many pixels between observations.
+  movement_threshold_px: 18
+
+  # A stationary object must remain approximately stable for this
+  # many consecutive observations before a PLACE event is considered.
+  stationary_frames: 12
+
+  # A person/object center distance below this threshold is treated
+  # as an interaction candidate.
+  interaction_distance_px: 180
+
+  cooldown_seconds: 3.0
+
+database:
+  path: data/memory.db
+
+api:
+  host: 0.0.0.0
+  port: 9000
+
+display:
+  show_window: true
+  show_fps: true
+  draw_boxes: true
+
+
+
+################################################################################
+# FILE: edge_device1/config/edge_config.yaml
+################################################################################
+
+camera:
+  index: 0
+  width: 1280
+  height: 720
+  fps: 30
+
+perception:
+  model: yolov8s-world.pt
+  confidence: 0.30
+  iou: 0.50
+
+  # Change this list to the objects important to your scenario.
+  classes:
+    - person
+    - cell phone
+    - wallet
+    - keys
+    - laptop
+    - backpack
+    - bottle
+    - book
+    - cup
+    - table
+    - hands
+
+events:
+  enabled: true
+
+  # A tracked object is considered moving when its center moves
+  # at least this many pixels between observations.
+  movement_threshold_px: 18
+
+  # A stationary object must remain approximately stable for this
+  # many consecutive observations before a PLACE event is considered.
+  stationary_frames: 12
+
+  # A person/object center distance below this threshold is treated
+  # as an interaction candidate.
+  interaction_distance_px: 180
+
+  cooldown_seconds: 3.0
+
+database:
+  path: data/memory.db
+
+api:
+  host: 0.0.0.0
+  port: 9000
+
+display:
+  show_window: true
+  show_fps: true
+  draw_boxes: true
+
+
+
+################################################################################
+# FILE: edge_device1/docs/ARCHITECTURE.md
+################################################################################
+
+# Architecture
+
+```text
+                         WEBCAM
+                            |
+                            v
+                      YOLO-World
+                            |
+             +--------------+--------------+
+             |              |              |
+          PERSON       PERSONAL OBJECTS   LANDMARKS
+             |              |              |
+             +--------------+--------------+
+                            |
+                            v
+                     TRACKED OBJECTS
+                            |
+                     +------+------+
+                     |             |
+                     v             v
+               HAND TRACKING   LANDMARK HISTORY
+                     |             |
+                     +------+------+
+                            |
+                            v
+                   TEMPORAL EVENT ENGINE
+                            |
+                 +----------+----------+
+                 |          |          |
+                PICK       MOVE      PLACE
+                                      |
+                                      v
+                              CONFIDENCE FILTER
+                                      |
+                                      v
+                               SEMANTIC DEDUP
+                                      |
+                                      v
+                                    SQLite
+                                      |
+                                      v
+                                 Edge API
+```
+
+
+
+################################################################################
+# FILE: edge_device1/docs/CHANGES.md
+################################################################################
+
+# Changes from the old edge_device1
+
+- Rich YOLO-World prompts for furniture and common objects.
+- Canonical label normalization.
+- Explicit landmark/object separation.
+- MediaPipe hand tracking.
+- Sustained-contact PICK detection.
+- Release + stability + landmark PLACE detection.
+- Optional MOVE only after PICK.
+- Temporal landmark association.
+- Confidence fusion for semantic events.
+- SQLite WAL and busy timeout.
+- Semantic event deduplication.
+- Camera reconnect handling.
+- Graceful shutdown.
+- Existing semantic API endpoints preserved.
+- No raw camera media persisted or exposed.
+
+
+
+################################################################################
+# FILE: edge_device1/docs/TESTING.md
+################################################################################
+
+# Testing checklist
+
+## Furniture recognition
+
+- Table/desk is clearly visible.
+- Preview shows `table` or `desk` repeatedly.
+- No event needs to be generated for a stationary landmark.
+
+## PICK
+
+- Hold a wallet/phone/bottle still.
+- Put a hand next to/on it.
+- Keep contact for several frames.
+- Move it.
+- Expect `PICK`.
+
+## MOVE
+
+- Continue moving after PICK.
+- Expect optional `MOVE`.
+
+## PLACE
+
+- Move the object over a visible table/desk.
+- Release the object.
+- Keep it still for the required stable frames.
+- Expect `PLACE -> table` or `PLACE -> desk`.
+
+## Database
+
+```powershell
+python -m src.inspect_memory
+```
+
+## API
+
+```powershell
+python -m src.edge_api
+```
+
+Then open:
+
+```text
+http://127.0.0.1:9000/health
+http://127.0.0.1:9000/memory/recent
+```
+
+
+
+################################################################################
+# FILE: edge_device1/README.md
+################################################################################
+
+# Edge Device — Privacy-Preserving Episodic Memory
+
+This folder is the edge-side implementation of the project.
+
+## What it does
+
+The edge device owns the camera and performs perception locally:
+
+```text
+Webcam
+  ↓
+YOLO-World detection
+  ↓
+Persistent tracking
+  ↓
+Temporal interaction analysis
+  ↓
+Semantic event
+  ↓
+SQLite database
+```
+
+Only semantic events are stored/exposed. Raw frames are not sent to the server.
+
+The edge HTTP API is a separate read-only interface for the server:
+
+```text
+GET /health
+GET /memory/recent
+GET /memory/search?q=wallet
+GET /memory/events
+```
+
+## Current prototype
+
+This implementation is intended to run on a laptop/edge computer with a webcam first. It provides a clean hardware boundary so the camera/perception implementation can later be replaced by an ESP32-class device or a stronger edge computer.
+
+An ESP32 generally should not be expected to run the same Python/YOLO-World stack. For the eventual embedded deployment, the perception workload can be moved to an ESP32-S3 plus suitable lightweight models, or to a companion edge computer. The server/API/database contract remains the same.
+
+## Install
+
+From this directory:
+
+```powershell
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+```
+
+For GPU/CUDA, install the appropriate PyTorch build for your machine before installing/using Ultralytics.
+
+## Configure
+
+Copy:
+
+```text
+config/edge_config.example.yaml
+```
+
+to:
+
+```text
+config/edge_config.yaml
+```
+
+Adjust camera index, resolution, model and object classes.
+
+## Run live perception
+
+```powershell
+python -m src.main
+```
+
+The webcam window will show detections and event overlays.
+
+Press `q` to stop.
+
+The database will be created at:
+
+```text
+data/memory.db
+```
+
+## Run the edge API
+
+Use another terminal:
+
+```powershell
+.\.venv\Scripts\Activate.ps1
+python -m src.edge_api
+```
+
+Default:
+
+```text
+http://127.0.0.1:9000
+```
+
+The API only returns semantic records.
+
+## Important privacy property
+
+The edge API never exposes the camera frames. `memory_store.py` stores:
+
+- timestamp
+- subject
+- action
+- landmark/context
+- confidence
+- optional details
+
+It does not store image/video blobs.
+
+## GitHub
+
+Do not commit:
+
+```text
+data/*.db
+.venv/
+__pycache__/
+```
+
+The supplied `.gitignore` handles these.
+
+
+
+################################################################################
+# FILE: edge_device1/requirements.txt
+################################################################################
+
+opencv-python>=4.8,<5
+numpy>=1.24,<3
+PyYAML>=6,<7
+Flask>=3,<4
+ultralytics>=8.3,<9
+mediapipe>=0.10,<0.11
+
+
+
+################################################################################
+# FILE: edge_device1/src/__init__.py
+################################################################################
+
+
+
+
+
+################################################################################
+# FILE: edge_device1/src/config.py
+################################################################################
+
+from __future__ import annotations
+
+from pathlib import Path
+import yaml
+
+
+ROOT = Path(__file__).resolve().parents[1]
+DEFAULT_CONFIG = ROOT / "config" / "edge_config.yaml"
+EXAMPLE_CONFIG = ROOT / "config" / "edge_config.example.yaml"
+
+
+def load_config(path: str | None = None) -> dict:
+    config_path = Path(path) if path else DEFAULT_CONFIG
+
+    if not config_path.exists():
+        if EXAMPLE_CONFIG.exists():
+            config_path = EXAMPLE_CONFIG
+        else:
+            raise FileNotFoundError(f"Configuration not found: {config_path}")
+
+    with config_path.open("r", encoding="utf-8") as f:
+        return yaml.safe_load(f) or {}
+
+
+def resolve_project_path(value: str) -> Path:
+    p = Path(value)
+    if p.is_absolute():
+        return p
+    return ROOT / p
+
+
+
+################################################################################
+# FILE: edge_device1/src/edge_api.py
+################################################################################
+
+from __future__ import annotations
+
+from pathlib import Path
+
+from flask import Flask, jsonify, request
+
+from src.config import load_config, resolve_project_path
+from src.memory_store import MemoryStore
+
+
+cfg = load_config()
+db_path = resolve_project_path(
+    cfg.get("database", {}).get("path", "data/memory.db")
+)
+
+store = MemoryStore(db_path)
+store.initialize()
+
+app = Flask(__name__)
+
+
+@app.get("/health")
+def health():
+    return jsonify({
+        "status": "ok",
+        "service": "edge-semantic-memory",
+        "database": "available",
+        "raw_media_exposed": False,
+    })
+
+
+@app.get("/memory/recent")
+def recent():
+    limit = request.args.get("limit", 20, type=int)
+    return jsonify({"memories": store.recent(limit)})
+
+
+@app.get("/memory/search")
+def search():
+    query = request.args.get("q", "").strip()
+    if not query:
+        return jsonify({"error": "q is required"}), 400
+
+    limit = request.args.get("limit", 20, type=int)
+    return jsonify({"memories": store.search(query, limit)})
+
+
+@app.get("/memory/events")
+def events():
+    start = request.args.get("from")
+    end = request.args.get("to")
+    limit = request.args.get("limit", 100, type=int)
+
+    return jsonify({
+        "memories": store.events(start=start, end=end, limit=limit)
+    })
+
+
+if __name__ == "__main__":
+    api_cfg = cfg.get("api", {})
+    app.run(
+        host=api_cfg.get("host", "0.0.0.0"),
+        port=int(api_cfg.get("port", 9000)),
+        debug=False,
+    )
+
+
+
+################################################################################
+# FILE: edge_device1/src/events/__init__.py
+################################################################################
+
+
+
+
+
+################################################################################
+# FILE: edge_device1/src/events/event_recognizer.py
+################################################################################
+
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from datetime import datetime, timezone
+from math import hypot
+from time import monotonic
+
+
+@dataclass
+class TrackState:
+    label: str
+    last_center: tuple[float, float]
+    stable_frames: int = 0
+    moving_frames: int = 0
+    last_seen: float = field(default_factory=monotonic)
+    last_event_at: float = 0.0
+
+
+@dataclass
+class SemanticEvent:
+    timestamp: str
+    subject: str
+    action: str
+    landmark: str | None
+    confidence: float
+    details: str
+
+
+def distance(a: tuple[float, float], b: tuple[float, float]) -> float:
+    return hypot(a[0] - b[0], a[1] - b[1])
+
+
+class EventRecognizer:
+    """Conservative temporal event recognizer.
+
+    This is deliberately conservative: it only writes a semantic event after
+    temporal evidence is observed. It does not send frames anywhere.
+
+    Heuristic:
+      - PICK: an object begins moving while near a tracked person.
+      - PLACE: an object that was moving becomes stationary while near a person.
+      - MOVE: a tracked object moves for multiple observations away from a person.
+
+    'landmark' is represented by a scene/object label when one is available.
+    This makes the storage contract useful even before a dedicated landmark
+    classifier is plugged in.
+    """
+
+    def __init__(
+        self,
+        movement_threshold_px: float = 18,
+        stationary_frames: int = 12,
+        interaction_distance_px: float = 180,
+        cooldown_seconds: float = 3.0,
+    ):
+        self.movement_threshold = movement_threshold_px
+        self.stationary_frames_required = stationary_frames
+        self.interaction_distance = interaction_distance_px
+        self.cooldown = cooldown_seconds
+        self.tracks: dict[int, TrackState] = {}
+        self.recently_moved: set[int] = set()
+
+    def update(self, detections) -> list[SemanticEvent]:
+        now = monotonic()
+        people = [d for d in detections if d.label == "person"]
+        objects = [d for d in detections if d.label != "person"]
+        events: list[SemanticEvent] = []
+
+        current_ids = set()
+
+        for d in objects:
+            current_ids.add(d.track_id)
+            state = self.tracks.get(d.track_id)
+
+            if state is None or state.label != d.label:
+                self.tracks[d.track_id] = TrackState(
+                    label=d.label,
+                    last_center=d.center,
+                    last_seen=now,
+                )
+                continue
+
+            movement = distance(d.center, state.last_center)
+            near_person = any(
+                distance(d.center, p.center) <= self.interaction_distance
+                for p in people
+            )
+
+            if movement >= self.movement_threshold:
+                state.moving_frames += 1
+                state.stable_frames = 0
+                self.recently_moved.add(d.track_id)
+
+                if near_person and self._can_emit(state, now):
+                    events.append(
+                        self._event(
+                            d,
+                            "PICK",
+                            "Object movement detected while near a person.",
+                            now,
+                        )
+                    )
+                    state.last_event_at = now
+
+            else:
+                state.stable_frames += 1
+                state.moving_frames = 0
+
+                if (
+                    d.track_id in self.recently_moved
+                    and state.stable_frames >= self.stationary_frames_required
+                    and self._can_emit(state, now)
+                ):
+                    action = "PLACE" if near_person else "MOVE"
+                    details = (
+                        "Object became stationary after interaction."
+                        if action == "PLACE"
+                        else "Object became stationary after movement."
+                    )
+                    events.append(self._event(d, action, details, now))
+                    state.last_event_at = now
+                    self.recently_moved.discard(d.track_id)
+
+            state.last_center = d.center
+            state.last_seen = now
+
+        # Remove stale tracking state.
+        stale = [
+            tid for tid, state in self.tracks.items()
+            if now - state.last_seen > 5.0
+        ]
+        for tid in stale:
+            self.tracks.pop(tid, None)
+            self.recently_moved.discard(tid)
+
+        return events
+
+    def _can_emit(self, state: TrackState, now: float) -> bool:
+        return (now - state.last_event_at) >= self.cooldown
+
+    @staticmethod
+    def _event(
+        detection,
+        action: str,
+        details: str,
+        now: float,
+    ) -> SemanticEvent:
+        timestamp = datetime.now(timezone.utc).astimezone().replace(
+            microsecond=0
+        ).isoformat()
+
+        return SemanticEvent(
+            timestamp=timestamp,
+            subject=detection.label,
+            action=action,
+            landmark=None,
+            confidence=detection.confidence,
+            details=details,
+        )
+
+
+
+################################################################################
+# FILE: edge_device1/src/inspect_memory.py
+################################################################################
+
+from __future__ import annotations
+
+from src.config import load_config, resolve_project_path
+from src.memory_store import MemoryStore
+
+
+cfg = load_config()
+db = resolve_project_path(
+    cfg.get("database", {}).get("path", "data/memory.db")
+)
+
+store = MemoryStore(db)
+store.initialize()
+
+for row in store.recent(50):
+    print(
+        f"{row['timestamp']} | {row['subject']} | "
+        f"{row['action']} | {row.get('landmark') or '-'} | "
+        f"{row.get('details') or ''}"
+    )
+
+
+
+################################################################################
+# FILE: edge_device1/src/main.py
+################################################################################
+
+from __future__ import annotations
+
+import argparse
+import time
+
+import cv2
+
+from src.config import load_config, resolve_project_path
+from src.events.event_recognizer import EventRecognizer
+from src.memory_store import MemoryStore
+from src.perception.detector import WorldDetector
+
+
+def draw_detections(frame, detections):
+    for d in detections:
+        x1, y1, x2, y2 = d.xyxy
+        label = f"{d.label} #{d.track_id} {d.confidence:.2f}"
+        cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
+        cv2.putText(
+            frame,
+            label,
+            (x1, max(20, y1 - 8)),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.55,
+            (0, 255, 0),
+            2,
+            cv2.LINE_AA,
+        )
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(
+        description="Live edge perception and semantic-memory writer"
+    )
+    parser.add_argument("--config", default=None)
+    parser.add_argument(
+        "--camera",
+        type=int,
+        default=None,
+        help="Override camera index from configuration.",
+    )
+    parser.add_argument(
+        "--no-window",
+        action="store_true",
+        help="Run perception without displaying the local preview.",
+    )
+    return parser.parse_args()
+
+
+def main():
+    args = parse_args()
+    cfg = load_config(args.config)
+
+    cam_cfg = cfg.get("camera", {})
+    camera_index = (
+        args.camera if args.camera is not None else cam_cfg.get("index", 0)
+    )
+
+    cap = cv2.VideoCapture(camera_index)
+    if not cap.isOpened():
+        raise RuntimeError(
+            f"Could not open camera index {camera_index}. "
+            "Check Windows camera permissions or use --camera N."
+        )
+
+    width = int(cam_cfg.get("width", 1280))
+    height = int(cam_cfg.get("height", 720))
+    fps = int(cam_cfg.get("fps", 30))
+
+    cap.set(cv2.CAP_PROP_FRAME_WIDTH, width)
+    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
+    cap.set(cv2.CAP_PROP_FPS, fps)
+
+    perception_cfg = cfg.get("perception", {})
+    detector = WorldDetector(
+        model_path=str(
+            perception_cfg.get("model", "yolov8s-world.pt")
+        ),
+        classes=perception_cfg.get("classes", ["person", "cell phone"]),
+        confidence=float(perception_cfg.get("confidence", 0.30)),
+        iou=float(perception_cfg.get("iou", 0.50)),
+    )
+
+    event_cfg = cfg.get("events", {})
+    recognizer = EventRecognizer(
+        movement_threshold_px=float(
+            event_cfg.get("movement_threshold_px", 18)
+        ),
+        stationary_frames=int(event_cfg.get("stationary_frames", 12)),
+        interaction_distance_px=float(
+            event_cfg.get("interaction_distance_px", 180)
+        ),
+        cooldown_seconds=float(event_cfg.get("cooldown_seconds", 3.0)),
+    )
+
+    db_path = resolve_project_path(
+        cfg.get("database", {}).get("path", "data/memory.db")
+    )
+    store = MemoryStore(db_path)
+    store.initialize()
+
+    display_cfg = cfg.get("display", {})
+    show_window = bool(display_cfg.get("show_window", True)) and not args.no_window
+
+    frame_count = 0
+    start = time.monotonic()
+
+    print("Edge perception started.")
+    print(f"Camera index: {camera_index}")
+    print(f"Semantic database: {db_path}")
+    print("Press Q in the preview window to stop.")
+
+    try:
+        while True:
+            ok, frame = cap.read()
+            if not ok:
+                print("Camera frame could not be read; stopping.")
+                break
+
+            detections, _ = detector.infer(frame)
+            events = recognizer.update(detections)
+
+            for event in events:
+                event_id = store.add_event(
+                    timestamp=event.timestamp,
+                    subject=event.subject,
+                    action=event.action,
+                    landmark=event.landmark,
+                    confidence=event.confidence,
+                    details=event.details,
+                )
+                print(
+                    f"[MEMORY #{event_id}] {event.timestamp} | "
+                    f"{event.subject} | {event.action} | "
+                    f"{event.details}"
+                )
+
+            if show_window:
+                if display_cfg.get("draw_boxes", True):
+                    draw_detections(frame, detections)
+
+                frame_count += 1
+                elapsed = time.monotonic() - start
+                if display_cfg.get("show_fps", True) and elapsed > 0:
+                    live_fps = frame_count / elapsed
+                    cv2.putText(
+                        frame,
+                        f"FPS: {live_fps:.1f}",
+                        (15, 30),
+                        cv2.FONT_HERSHEY_SIMPLEX,
+                        0.8,
+                        (255, 255, 255),
+                        2,
+                        cv2.LINE_AA,
+                    )
+
+                cv2.imshow("Privacy-Preserving Edge Perception", frame)
+                key = cv2.waitKey(1) & 0xFF
+                if key == ord("q"):
+                    break
+
+    finally:
+        cap.release()
+        cv2.destroyAllWindows()
+        print("Edge perception stopped.")
+
+
+if __name__ == "__main__":
+    main()
+
+
+
+################################################################################
+# FILE: edge_device1/src/memory_store.py
+################################################################################
+
+from __future__ import annotations
+
+import sqlite3
+from pathlib import Path
+from typing import Any
+
+
+class MemoryStore:
+    """Thread/process-safe semantic memory storage.
+
+    SQLite WAL mode allows the perception process to write while the edge API
+    reads. No raw camera frame is stored.
+    """
+
+    def __init__(self, db_path: str | Path):
+        self.db_path = Path(db_path)
+        self.db_path.parent.mkdir(parents=True, exist_ok=True)
+
+    def connect(self) -> sqlite3.Connection:
+        conn = sqlite3.connect(self.db_path, timeout=5)
+        conn.row_factory = sqlite3.Row
+        conn.execute("PRAGMA journal_mode=WAL")
+        conn.execute("PRAGMA synchronous=NORMAL")
+        return conn
+
+    def initialize(self) -> None:
+        with self.connect() as conn:
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS memory_events (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    timestamp TEXT NOT NULL,
+                    subject TEXT NOT NULL,
+                    action TEXT NOT NULL,
+                    landmark TEXT,
+                    confidence REAL,
+                    details TEXT
+                )
+                """
+            )
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_memory_timestamp "
+                "ON memory_events(timestamp)"
+            )
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_memory_subject "
+                "ON memory_events(subject)"
+            )
+            conn.commit()
+
+    def add_event(
+        self,
+        timestamp: str,
+        subject: str,
+        action: str,
+        landmark: str | None = None,
+        confidence: float | None = None,
+        details: str | None = None,
+    ) -> int:
+        with self.connect() as conn:
+            cur = conn.execute(
+                """INSERT INTO memory_events
+                (timestamp, subject, action, landmark, confidence, details)
+                VALUES (?, ?, ?, ?, ?, ?)""",
+                (timestamp, subject, action, landmark, confidence, details),
+            )
+            conn.commit()
+            return int(cur.lastrowid)
+
+    def recent(self, limit: int = 20) -> list[dict[str, Any]]:
+        limit = max(1, min(int(limit), 200))
+        with self.connect() as conn:
+            rows = conn.execute(
+                """SELECT id, timestamp, subject, action, landmark,
+                          confidence, details
+                   FROM memory_events
+                   ORDER BY timestamp DESC, id DESC
+                   LIMIT ?""",
+                (limit,),
+            ).fetchall()
+        return [dict(r) for r in rows]
+
+    def search(self, query: str, limit: int = 20) -> list[dict[str, Any]]:
+        query = query.strip()
+        if not query:
+            return self.recent(limit)
+
+        limit = max(1, min(int(limit), 200))
+        q = f"%{query}%"
+        with self.connect() as conn:
+            rows = conn.execute(
+                """SELECT id, timestamp, subject, action, landmark,
+                          confidence, details
+                   FROM memory_events
+                   WHERE subject LIKE ?
+                      OR action LIKE ?
+                      OR COALESCE(landmark, '') LIKE ?
+                      OR COALESCE(details, '') LIKE ?
+                   ORDER BY timestamp DESC, id DESC
+                   LIMIT ?""",
+                (q, q, q, q, limit),
+            ).fetchall()
+        return [dict(r) for r in rows]
+
+    def events(
+        self,
+        start: str | None = None,
+        end: str | None = None,
+        limit: int = 100,
+    ) -> list[dict[str, Any]]:
+        limit = max(1, min(int(limit), 500))
+        clauses = []
+        params: list[Any] = []
+
+        if start:
+            clauses.append("timestamp >= ?")
+            params.append(start)
+        if end:
+            clauses.append("timestamp <= ?")
+            params.append(end)
+
+        where = (" WHERE " + " AND ".join(clauses)) if clauses else ""
+        params.append(limit)
+
+        with self.connect() as conn:
+            rows = conn.execute(
+                f"""SELECT id, timestamp, subject, action, landmark,
+                           confidence, details
+                    FROM memory_events
+                    {where}
+                    ORDER BY timestamp DESC, id DESC
+                    LIMIT ?""",
+                params,
+            ).fetchall()
+        return [dict(r) for r in rows]
+
+
+
+################################################################################
+# FILE: edge_device1/src/perception/__init__.py
+################################################################################
+
+
+
+
+
+################################################################################
+# FILE: edge_device1/src/perception/detector.py
+################################################################################
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from typing import Any
+
+from ultralytics import YOLOWorld
+
+
+@dataclass
+class Detection:
+    track_id: int
+    label: str
+    confidence: float
+    xyxy: tuple[int, int, int, int]
+
+    @property
+    def center(self) -> tuple[float, float]:
+        x1, y1, x2, y2 = self.xyxy
+        return ((x1 + x2) / 2.0, (y1 + y2) / 2.0)
+
+
+class WorldDetector:
+    """YOLO-World detector with persistent tracking.
+
+    The detector is intentionally isolated from event recognition so a
+    different edge model can later be substituted without changing storage
+    or server code.
+    """
+
+    def __init__(
+        self,
+        model_path: str,
+        classes: list[str],
+        confidence: float = 0.3,
+        iou: float = 0.5,
+    ):
+        self.model = YOLOWorld(model_path)
+        self.model.set_classes(classes)
+        self.confidence = confidence
+        self.iou = iou
+
+        # Ultralytics returns class IDs for the custom vocabulary.
+        self.class_names = {i: name for i, name in enumerate(classes)}
+
+    def infer(self, frame) -> tuple[list[Detection], Any]:
+        results = self.model.track(
+            source=frame,
+            persist=True,
+            conf=self.confidence,
+            iou=self.iou,
+            verbose=False,
+        )
+
+        result = results[0]
+        detections: list[Detection] = []
+
+        if result.boxes is None:
+            return detections, result
+
+        boxes = result.boxes
+        xyxy = boxes.xyxy.cpu().numpy()
+        confs = boxes.conf.cpu().numpy()
+        class_ids = boxes.cls.cpu().numpy().astype(int)
+
+        if boxes.id is not None:
+            track_ids = boxes.id.cpu().numpy().astype(int)
+        else:
+            # If tracking IDs are temporarily unavailable, skip these objects
+            # rather than creating unstable fake identities.
+            track_ids = [-1] * len(xyxy)
+
+        for box, conf, cls_id, track_id in zip(
+            xyxy, confs, class_ids, track_ids
+        ):
+            if track_id < 0:
+                continue
+
+            label = self.class_names.get(int(cls_id), str(cls_id))
+            x1, y1, x2, y2 = [int(v) for v in box]
+            detections.append(
+                Detection(
+                    track_id=int(track_id),
+                    label=label,
+                    confidence=float(conf),
+                    xyxy=(x1, y1, x2, y2),
+                )
+            )
+
+        return detections, result
+
+
+
+################################################################################
+# FILE: edge_device1/src/perception/hand_tracker.py
+################################################################################
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from pathlib import Path
+import logging
+import time
+import urllib.request
+
+import cv2
+import mediapipe as mp
+
+LOGGER = logging.getLogger(__name__)
+
+MODEL_URL = (
+    "https://storage.googleapis.com/mediapipe-models/"
+    "hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task"
+)
+
+
+@dataclass
+class HandObservation:
+    handedness: str
+    center: tuple[float, float]
+    confidence: float
+    points: list[tuple[float, float]]
+
+
+class HandTracker:
+    def __init__(self, model_path, max_num_hands=2,
+                 min_detection_confidence=0.45,
+                 min_tracking_confidence=0.45,
+                 auto_download=True):
+        self.model_path = Path(model_path)
+        self.max_num_hands = max_num_hands
+        self.min_detection_confidence = min_detection_confidence
+        self.min_tracking_confidence = min_tracking_confidence
+        self.landmarker = None
+        self.enabled = False
+        self._last_timestamp_ms = 0
+
+        if not self.model_path.exists():
+            if not auto_download:
+                raise FileNotFoundError(self.model_path)
+            self.model_path.parent.mkdir(parents=True, exist_ok=True)
+            LOGGER.info("Downloading MediaPipe hand model...")
+            urllib.request.urlretrieve(MODEL_URL, self.model_path)
+
+        self._initialize()
+        self.enabled = True
+
+    def _initialize(self):
+        from mediapipe.tasks import python
+        from mediapipe.tasks.python import vision
+
+        options = vision.HandLandmarkerOptions(
+            base_options=python.BaseOptions(
+                model_asset_path=str(self.model_path)
+            ),
+            running_mode=vision.RunningMode.VIDEO,
+            num_hands=self.max_num_hands,
+            min_hand_detection_confidence=self.min_detection_confidence,
+            min_hand_presence_confidence=self.min_detection_confidence,
+            min_tracking_confidence=self.min_tracking_confidence,
+        )
+        self.landmarker = vision.HandLandmarker.create_from_options(options)
+
+    def infer(self, frame):
+        if not self.enabled or self.landmarker is None:
+            return []
+
+        rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        image = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb)
+
+        timestamp_ms = max(
+            int(time.monotonic() * 1000),
+            self._last_timestamp_ms + 1,
+        )
+        self._last_timestamp_ms = timestamp_ms
+
+        result = self.landmarker.detect_for_video(image, timestamp_ms)
+        observations = []
+
+        for idx, hand_landmarks in enumerate(result.hand_landmarks or []):
+            points = [
+                (float(p.x * frame.shape[1]), float(p.y * frame.shape[0]))
+                for p in hand_landmarks
+            ]
+            cx = sum(p[0] for p in points) / len(points)
+            cy = sum(p[1] for p in points) / len(points)
+
+            handedness = "unknown"
+            confidence = 0.0
+            if result.handedness and idx < len(result.handedness):
+                handedness = result.handedness[idx][0].category_name or "unknown"
+                confidence = float(result.handedness[idx][0].score or 0.0)
+
+            observations.append(
+                HandObservation(handedness, (cx, cy), confidence, points)
+            )
+
+        return observations
+
+    def close(self):
+        if self.landmarker is not None:
+            try:
+                self.landmarker.close()
+            except Exception:
+                pass
+            self.landmarker = None
+            self.enabled = False
+
+
+
+################################################################################
+# FILE: edge_device1/src/perception/landmarks.py
+################################################################################
+
+from __future__ import annotations
+
+from collections import Counter, deque
+from dataclasses import dataclass
+from math import hypot
+
+
+@dataclass
+class LandmarkMatch:
+    label: str
+    confidence: float
+    gap_px: float
+
+
+def box_gap(a, b):
+    ax1, ay1, ax2, ay2 = a
+    bx1, by1, bx2, by2 = b
+    dx = max(bx1-ax2, ax1-bx2, 0)
+    dy = max(by1-ay2, ay1-by2, 0)
+    return hypot(dx, dy)
+
+
+def iou(a, b):
+    ax1, ay1, ax2, ay2 = a
+    bx1, by1, bx2, by2 = b
+    ix1, iy1 = max(ax1,bx1), max(ay1,by1)
+    ix2, iy2 = min(ax2,bx2), min(ay2,by2)
+    inter = max(0,ix2-ix1) * max(0,iy2-iy1)
+    aa = max(0,ax2-ax1) * max(0,ay2-ay1)
+    ba = max(0,bx2-bx1) * max(0,by2-by1)
+    union = aa + ba - inter
+    return inter/union if union else 0.0
+
+
+class LandmarkAssociator:
+    """Associates a personal object with a landmark over multiple frames."""
+
+    def __init__(self, landmarks, max_gap_px=180,
+                 vertical_tolerance_px=140, history_frames=8,
+                 confirmations=3):
+        self.landmarks = set(landmarks)
+        self.max_gap = max_gap_px
+        self.vertical_tolerance = vertical_tolerance_px
+        self.history_frames = history_frames
+        self.confirmations = confirmations
+        self.history = {}
+
+    def update(self, obj, landmark_detections):
+        candidates = []
+        ox1, oy1, ox2, oy2 = obj.xyxy
+        for lm in landmark_detections:
+            if lm.label not in self.landmarks:
+                continue
+            gap = box_gap(obj.xyxy, lm.xyxy)
+            lx1, ly1, lx2, ly2 = lm.xyxy
+            vertical_gap = ly1 - oy2
+
+            if gap <= self.max_gap and vertical_gap <= self.vertical_tolerance:
+                candidates.append((gap, -lm.confidence, lm))
+
+        if candidates:
+            _, _, best = min(candidates, key=lambda x: (x[0], x[1]))
+            hist = self.history.setdefault(
+                obj.track_id, deque(maxlen=self.history_frames)
+            )
+            hist.append(best.label)
+
+            counts = Counter(hist)
+            label, count = counts.most_common(1)[0]
+            if count >= self.confirmations:
+                return LandmarkMatch(
+                    label=label,
+                    confidence=best.confidence,
+                    gap_px=box_gap(obj.xyxy, best.xyxy),
+                )
+
+        return self._confirmed(obj.track_id)
+
+    def _confirmed(self, track_id):
+        hist = self.history.get(track_id)
+        if not hist:
+            return None
+        label, count = Counter(hist).most_common(1)[0]
+        if count >= self.confirmations:
+            return LandmarkMatch(label, 0.55, self.max_gap)
+        return None
+
+    def clear(self, track_id):
+        self.history.pop(track_id, None)
+
+
+
+################################################################################
+# FILE: edge_device1/tests/__init__.py
+################################################################################
+
+
+
+
+
+################################################################################
+# FILE: edge_device1/tests/test_event_recognizer.py
+################################################################################
+
+from types import SimpleNamespace
+from src.events.event_recognizer import EventRecognizer
+
+
+def det(label, tid, cx, cy, conf=0.9, size=40):
+    return SimpleNamespace(
+        label=label, track_id=tid, confidence=conf,
+        center=(cx,cy),
+        xyxy=(int(cx-size/2),int(cy-size/2),int(cx+size/2),int(cy+size/2)),
+    )
+
+
+def hand(cx, cy, conf=0.95):
+    return SimpleNamespace(center=(cx,cy), confidence=conf)
+
+
+def test_pick_requires_sustained_contact_and_motion():
+    r = EventRecognizer(
+        ["wallet"], ["table"],
+        contact_distance_px=80, movement_distance_px=10,
+        min_moving_frames=2, contact_frames=2,
+        release_frames=2, stable_frames=2, cooldown_seconds=0,
+    )
+
+    assert r.update([det("wallet",1,100,100)],[hand(100,100)],[]) == []
+    assert r.update([det("wallet",1,108,100)],[hand(108,100)],[]) == []
+    events = r.update([det("wallet",1,125,100)],[hand(125,100)],[])
+    assert any(e.action == "PICK" for e in events)
+
+
+def test_place_contains_landmark():
+    r = EventRecognizer(
+        ["wallet"], ["table"],
+        contact_distance_px=80, movement_distance_px=10,
+        min_moving_frames=1, contact_frames=1,
+        release_frames=2, stable_frames=2, cooldown_seconds=0,
+    )
+
+    r.update([det("wallet",1,100,100)],[hand(100,100)],{})
+    r.update([det("wallet",1,120,100)],[hand(120,100)],{})
+
+    lm = SimpleNamespace(label="table", confidence=0.9)
+    r.update([det("wallet",1,160,100)],[],{1:lm})
+    r.update([det("wallet",1,160,100)],[],{1:lm})
+    events = r.update([det("wallet",1,160,100)],[],{1:lm})
+
+    assert any(e.action == "PLACE" and e.landmark == "table" for e in events)
+
+
+
+################################################################################
+# FILE: edge_device1/weights/README.txt
+################################################################################
+
+Model weights are intentionally not bundled.
+
+You may place YOLO-World weights here, for example:
+
+weights/yolov8s-world.pt
+
+and set:
+
+perception:
+  model: weights/yolov8s-world.pt
+
+The MediaPipe hand model is downloaded automatically to:
+data/hand_landmarker.task
+
+
+
+################################################################################
+# FILE: edge_device2/.gitignore
+################################################################################
+
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+data/*.db
+data/*.sqlite
+data/*.sqlite3
+data/hand_landmarker.task
+*.log
+*.pt
+*.onnx
+*.engine
+.vscode/
+.idea/
+
+
+
+################################################################################
+# FILE: edge_device2/config/edge_config.example.yaml
+################################################################################
+
+camera:
+  index: 0
+  width: 1280
+  height: 720
+  fps: 30
+  backend: auto
+  reconnect_attempts: 5
+  reconnect_delay_seconds: 1.0
+
+perception:
+  model: yolov8s-world.pt
+  confidence: 0.20
+  landmark_confidence: 0.18
+  iou: 0.45
+  imgsz: 960
+  device: auto
+  max_detections: 40
+  prompts:
+    person: [person]
+    wallet: [wallet, purse, small wallet]
+    keys: [keys, keyring, key]
+    phone: [phone, cell phone, smartphone]
+    glasses: [glasses, eyeglasses, spectacles]
+    bottle: [bottle, water bottle]
+    laptop: [laptop, notebook computer]
+    backpack: [backpack, bag]
+    book: [book, notebook]
+    cup: [cup, mug]
+    table: [table, tabletop, dining table, desk table]
+    desk: [desk, office desk, study desk, work desk]
+    shelf: [shelf, shelving, bookshelf]
+    bed: [bed, mattress]
+    cupboard: [cupboard, cabinet, wardrobe]
+
+objects:
+  personal: [wallet, keys, phone, glasses, bottle, laptop, backpack, book, cup]
+  landmarks: [table, desk, shelf, bed, cupboard]
+  aliases:
+    cell phone: phone
+    smartphone: phone
+    keyring: keys
+    eyeglasses: glasses
+    spectacles: glasses
+    water bottle: bottle
+    notebook computer: laptop
+    bag: backpack
+    mug: cup
+    tabletop: table
+    dining table: table
+    desk table: table
+    office desk: desk
+    study desk: desk
+    work desk: desk
+    shelving: shelf
+    bookshelf: shelf
+    mattress: bed
+    cabinet: cupboard
+    wardrobe: cupboard
+
+tracking:
+  max_missing_frames: 15
+  max_match_distance_px: 140
+  min_iou_for_match: 0.05
+
+hands:
+  enabled: true
+  max_num_hands: 2
+  min_detection_confidence: 0.45
+  min_tracking_confidence: 0.45
+  model_path: data/hand_landmarker.task
+  auto_download: true
+
+events:
+  enabled: true
+  contact_distance_px: 110
+  movement_distance_px: 14
+  min_moving_frames: 3
+  contact_frames: 3
+  release_frames: 3
+  stable_frames: 8
+  landmark_max_gap_px: 180
+  landmark_vertical_tolerance_px: 140
+  landmark_history_frames: 8
+  landmark_confirmations: 3
+  min_event_confidence: 0.55
+  cooldown_seconds: 2.0
+  emit_move: true
+  move_min_frames: 8
+
+database:
+  path: data/memory.db
+  dedup_window_seconds: 4.0
+
+api:
+  host: 127.0.0.1
+  port: 9000
+
+display:
+  show_window: true
+  show_fps: true
+  draw_boxes: true
+  draw_hands: true
+
+
+
+################################################################################
+# FILE: edge_device2/config/edge_config.yaml
+################################################################################
+
+camera:
+  index: 0
+  width: 1280
+  height: 720
+  fps: 30
+  backend: auto
+  reconnect_attempts: 5
+  reconnect_delay_seconds: 1.0
+
+perception:
+  model: yolov8s-world.pt
+  confidence: 0.20
+  landmark_confidence: 0.18
+  iou: 0.45
+  imgsz: 960
+  device: auto
+  max_detections: 40
+  prompts:
+    person: [person]
+    wallet: [wallet, purse, small wallet]
+    keys: [keys, keyring, key]
+    phone: [phone, cell phone, smartphone]
+    glasses: [glasses, eyeglasses, spectacles]
+    bottle: [bottle, water bottle]
+    laptop: [laptop, notebook computer]
+    backpack: [backpack, bag]
+    book: [book, notebook]
+    cup: [cup, mug]
+    table: [table, tabletop, dining table, desk table]
+    desk: [desk, office desk, study desk, work desk]
+    shelf: [shelf, shelving, bookshelf]
+    bed: [bed, mattress]
+    cupboard: [cupboard, cabinet, wardrobe]
+
+objects:
+  personal: [wallet, keys, phone, glasses, bottle, laptop, backpack, book, cup]
+  landmarks: [table, desk, shelf, bed, cupboard]
+  aliases:
+    cell phone: phone
+    smartphone: phone
+    keyring: keys
+    eyeglasses: glasses
+    spectacles: glasses
+    water bottle: bottle
+    notebook computer: laptop
+    bag: backpack
+    mug: cup
+    tabletop: table
+    dining table: table
+    desk table: table
+    office desk: desk
+    study desk: desk
+    work desk: desk
+    shelving: shelf
+    bookshelf: shelf
+    mattress: bed
+    cabinet: cupboard
+    wardrobe: cupboard
+
+tracking:
+  max_missing_frames: 15
+  max_match_distance_px: 140
+  min_iou_for_match: 0.05
+
+hands:
+  enabled: true
+  max_num_hands: 2
+  min_detection_confidence: 0.45
+  min_tracking_confidence: 0.45
+  model_path: data/hand_landmarker.task
+  auto_download: true
+
+events:
+  enabled: true
+  contact_distance_px: 110
+  movement_distance_px: 14
+  min_moving_frames: 3
+  contact_frames: 3
+  release_frames: 3
+  stable_frames: 8
+  landmark_max_gap_px: 180
+  landmark_vertical_tolerance_px: 140
+  landmark_history_frames: 8
+  landmark_confirmations: 3
+  min_event_confidence: 0.55
+  cooldown_seconds: 2.0
+  emit_move: true
+  move_min_frames: 8
+
+database:
+  path: data/memory.db
+  dedup_window_seconds: 4.0
+
+api:
+  host: 127.0.0.1
+  port: 9000
+
+display:
+  show_window: true
+  show_fps: true
+  draw_boxes: true
+  draw_hands: true
+
+
+
+################################################################################
+# FILE: edge_device2/docs/ARCHITECTURE.md
+################################################################################
+
+# Architecture
+
+```text
+                         WEBCAM
+                            |
+                            v
+                      YOLO-World
+                            |
+             +--------------+--------------+
+             |              |              |
+          PERSON       PERSONAL OBJECTS   LANDMARKS
+             |              |              |
+             +--------------+--------------+
+                            |
+                            v
+                     TRACKED OBJECTS
+                            |
+                     +------+------+
+                     |             |
+                     v             v
+               HAND TRACKING   LANDMARK HISTORY
+                     |             |
+                     +------+------+
+                            |
+                            v
+                   TEMPORAL EVENT ENGINE
+                            |
+                 +----------+----------+
+                 |          |          |
+                PICK       MOVE      PLACE
+                                      |
+                                      v
+                              CONFIDENCE FILTER
+                                      |
+                                      v
+                               SEMANTIC DEDUP
+                                      |
+                                      v
+                                    SQLite
+                                      |
+                                      v
+                                 Edge API
+```
+
+
+
+################################################################################
+# FILE: edge_device2/docs/CHANGES.md
+################################################################################
+
+# Changes from the old edge_device1
+
+- Rich YOLO-World prompts for furniture and common objects.
+- Canonical label normalization.
+- Explicit landmark/object separation.
+- MediaPipe hand tracking.
+- Sustained-contact PICK detection.
+- Release + stability + landmark PLACE detection.
+- Optional MOVE only after PICK.
+- Temporal landmark association.
+- Confidence fusion for semantic events.
+- SQLite WAL and busy timeout.
+- Semantic event deduplication.
+- Camera reconnect handling.
+- Graceful shutdown.
+- Existing semantic API endpoints preserved.
+- No raw camera media persisted or exposed.
+
+
+
+################################################################################
+# FILE: edge_device2/docs/TESTING.md
+################################################################################
+
+# Testing checklist
+
+## Furniture recognition
+
+- Table/desk is clearly visible.
+- Preview shows `table` or `desk` repeatedly.
+- No event needs to be generated for a stationary landmark.
+
+## PICK
+
+- Hold a wallet/phone/bottle still.
+- Put a hand next to/on it.
+- Keep contact for several frames.
+- Move it.
+- Expect `PICK`.
+
+## MOVE
+
+- Continue moving after PICK.
+- Expect optional `MOVE`.
+
+## PLACE
+
+- Move the object over a visible table/desk.
+- Release the object.
+- Keep it still for the required stable frames.
+- Expect `PLACE -> table` or `PLACE -> desk`.
+
+## Database
+
+```powershell
+python -m src.inspect_memory
+```
+
+## API
+
+```powershell
+python -m src.edge_api
+```
+
+Then open:
+
+```text
+http://127.0.0.1:9000/health
+http://127.0.0.1:9000/memory/recent
+```
+
+
+
+################################################################################
+# FILE: edge_device2/README.md
+################################################################################
+
+# Robust `edge_device1`
+
+This is a replacement for the currently used `edge_device1/` folder. The old
+`edge_device/` folder is not required.
+
+## Main improvement
+
+The previous recognizer treated almost every non-person detection as an
+object and inferred PICK/PLACE mainly from movement and proximity to a person.
+It also did not populate the landmark field.
+
+This version explicitly separates:
+
+- personal objects
+- landmarks (`table`, `desk`, `shelf`, `bed`, `cupboard`)
+- person
+- hands
+
+and uses a temporal state machine.
+
+```text
+Webcam
+  ↓
+YOLO-World rich prompts
+  ↓
+personal objects + landmarks
+  ↓
+MediaPipe hand tracking
+  ↓
+temporal PICK / MOVE / PLACE
+  ↓
+temporal landmark association
+  ↓
+confidence filtering
+  ↓
+semantic deduplication
+  ↓
+SQLite
+```
+
+## Why table/desk detection is improved
+
+YOLO-World receives richer prompts:
+
+```text
+table, tabletop, dining table, desk table
+desk, office desk, study desk, work desk
+shelf, shelving, bookshelf
+cupboard, cabinet, wardrobe
+```
+
+The detector converts these back into canonical labels, so memory still uses
+simple labels such as `table` and `desk`.
+
+Landmarks also use a lower detection threshold than personal objects. This is
+intentional because furniture can be partially visible.
+
+## Event logic
+
+### PICK
+
+Requires:
+
+1. hand close to the object for multiple frames
+2. object movement for multiple frames
+
+### MOVE
+
+Optional and emitted only after a confirmed PICK.
+
+### PLACE
+
+Requires:
+
+1. previous PICK
+2. hand release
+3. object stability
+4. a temporally confirmed landmark
+
+So simply seeing a stationary wallet does not create a PLACE event.
+
+## Install
+
+From this directory:
+
+```powershell
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+```
+
+If your existing environment already works:
+
+```powershell
+pip install -r requirements.txt
+```
+
+YOLO-World weights are loaded through Ultralytics. If the configured model is
+not local, Ultralytics normally downloads it.
+
+The MediaPipe hand model is downloaded automatically to:
+
+```text
+data/hand_landmarker.task
+```
+
+No video/image is written to disk.
+
+## Run
+
+From inside `edge_device1`:
+
+```powershell
+python -m src.main
+```
+
+Camera override:
+
+```powershell
+python -m src.main --camera 1
+```
+
+No preview:
+
+```powershell
+python -m src.main --no-window
+```
+
+Press `Q` to stop.
+
+## Run API
+
+In another terminal:
+
+```powershell
+python -m src.edge_api
+```
+
+The default API is:
+
+```text
+http://127.0.0.1:9000
+```
+
+Endpoints:
+
+```text
+GET /health
+GET /memory/recent
+GET /memory/search?q=wallet
+GET /memory/events
+```
+
+The server-side API contract remains semantic-only.
+
+## Inspect memory
+
+```powershell
+python -m src.inspect_memory
+```
+
+## Test
+
+Install pytest if needed:
+
+```powershell
+pip install pytest
+```
+
+Then:
+
+```powershell
+pytest -q
+```
+
+## Recommended live test
+
+First test furniture recognition alone:
+
+1. Put a clearly visible table or desk in the webcam view.
+2. Keep it visible for several seconds.
+3. Confirm the preview repeatedly shows `table` or `desk`.
+4. Only then test object interaction.
+
+For a placement test:
+
+```text
+wallet on table
+      ↓
+hand touches wallet
+      ↓
+wallet is moved
+      ↓
+hand releases wallet
+      ↓
+wallet remains stable
+      ↓
+PLACE(wallet, table)
+```
+
+Expected semantic memory:
+
+```text
+wallet | PICK  | -
+wallet | MOVE  | -
+wallet | PLACE | table
+```
+
+The exact result depends on camera angle, lighting, object visibility and model
+confidence.
+
+## Tuning
+
+If furniture is still missed, try only:
+
+```yaml
+perception:
+  landmark_confidence: 0.15
+```
+
+If PICK is too difficult:
+
+```yaml
+events:
+  contact_distance_px: 125
+  movement_distance_px: 12
+  contact_frames: 2
+```
+
+If false PICK events occur, increase the contact/movement requirements.
+
+If PLACE is too difficult:
+
+```yaml
+events:
+  landmark_max_gap_px: 220
+  landmark_confirmations: 2
+```
+
+Change one parameter at a time.
+
+## Privacy
+
+Only semantic records are stored:
+
+- timestamp
+- subject
+- action
+- landmark
+- confidence
+- details
+
+Raw frames are processed in memory and are never stored or returned by the
+edge API.
+
+## Important
+
+Do not copy the old `edge_device/` code into this folder. This ZIP is intended
+to replace the contents of your currently used `edge_device1/`.
+
+
+
+################################################################################
+# FILE: edge_device2/requirements.txt
+################################################################################
+
+opencv-python>=4.8,<5
+numpy>=1.24,<3
+PyYAML>=6,<7
+Flask>=3,<4
+ultralytics>=8.3,<9
+mediapipe>=0.10,<0.11
+pytest>=8,<9
+
+
+
+################################################################################
+# FILE: edge_device2/src/__init__.py
+################################################################################
+
+
+
+
+
+################################################################################
+# FILE: edge_device2/src/config.py
+################################################################################
+
+from __future__ import annotations
+
+from pathlib import Path
+from typing import Any
+import yaml
+
+ROOT = Path(__file__).resolve().parents[1]
+DEFAULT_CONFIG = ROOT / "config" / "edge_config.yaml"
+EXAMPLE_CONFIG = ROOT / "config" / "edge_config.example.yaml"
+
+
+def load_config(path: str | None = None) -> dict[str, Any]:
+    config_path = Path(path) if path else DEFAULT_CONFIG
+    if not config_path.exists():
+        if EXAMPLE_CONFIG.exists():
+            config_path = EXAMPLE_CONFIG
+        else:
+            raise FileNotFoundError(f"Configuration not found: {config_path}")
+
+    with config_path.open("r", encoding="utf-8") as f:
+        cfg = yaml.safe_load(f) or {}
+
+    validate_config(cfg)
+    return cfg
+
+
+def validate_config(cfg: dict[str, Any]) -> None:
+    for section in ("camera", "perception", "objects", "tracking", "hands",
+                    "events", "database", "api"):
+        if not isinstance(cfg.get(section, {}), dict):
+            raise ValueError(f"Config section '{section}' must be a mapping")
+
+    if not cfg["objects"].get("personal"):
+        raise ValueError("objects.personal must not be empty")
+    if not cfg["objects"].get("landmarks"):
+        raise ValueError("objects.landmarks must not be empty")
+
+    for key in ("contact_frames", "release_frames", "stable_frames", "min_moving_frames"):
+        if int(cfg["events"].get(key, 1)) < 1:
+            raise ValueError(f"events.{key} must be >= 1")
+
+    threshold = float(cfg["events"].get("min_event_confidence", 0.55))
+    if not 0 < threshold <= 1:
+        raise ValueError("events.min_event_confidence must be in (0,1]")
+
+
+def resolve_project_path(value: str | Path) -> Path:
+    p = Path(value)
+    return p if p.is_absolute() else ROOT / p
+
+
+
+################################################################################
+# FILE: edge_device2/src/edge_api.py
+################################################################################
+
+from __future__ import annotations
+
+from flask import Flask, jsonify, request
+
+from src.config import load_config, resolve_project_path
+from src.memory_store import MemoryStore
+
+cfg = load_config()
+db_cfg = cfg["database"]
+
+store = MemoryStore(
+    resolve_project_path(db_cfg.get("path", "data/memory.db")),
+    float(db_cfg.get("dedup_window_seconds", 4.0)),
+)
+store.initialize()
+
+app = Flask(__name__)
+
+
+def limit_arg(name, default, maximum):
+    try:
+        value = int(request.args.get(name, default))
+    except (TypeError, ValueError):
+        value = default
+    return max(1, min(value, maximum))
+
+
+@app.get("/health")
+def health():
+    try:
+        ok = store.integrity_check() == "ok"
+    except Exception as exc:
+        return jsonify({
+            "status": "error",
+            "service": "edge-semantic-memory",
+            "database": "unavailable",
+            "raw_media_exposed": False,
+            "error": str(exc),
+        }), 503
+
+    return jsonify({
+        "status": "ok" if ok else "degraded",
+        "service": "edge-semantic-memory",
+        "database": "available" if ok else "degraded",
+        "raw_media_exposed": False,
+    }), 200 if ok else 503
+
+
+@app.get("/memory/recent")
+def recent():
+    return jsonify({"memories": store.recent(limit_arg("limit",20,200))})
+
+
+@app.get("/memory/search")
+def search():
+    q = request.args.get("q", "").strip()
+    if not q:
+        return jsonify({"error": "q is required"}), 400
+    return jsonify({"memories": store.search(q, limit_arg("limit",20,200))})
+
+
+@app.get("/memory/events")
+def events():
+    return jsonify({
+        "memories": store.events(
+            request.args.get("from"),
+            request.args.get("to"),
+            limit_arg("limit",100,500),
+        )
+    })
+
+
+if __name__ == "__main__":
+    api_cfg = cfg["api"]
+    app.run(
+        host=str(api_cfg.get("host", "127.0.0.1")),
+        port=int(api_cfg.get("port", 9000)),
+        debug=False,
+        threaded=True,
+    )
+
+
+
+################################################################################
+# FILE: edge_device2/src/events/__init__.py
+################################################################################
+
+
+
+
+
+################################################################################
+# FILE: edge_device2/src/events/event_recognizer.py
+################################################################################
+
+from __future__ import annotations
+
+from collections import deque
+from dataclasses import dataclass, field
+from datetime import datetime, timezone
+from math import hypot
+from time import monotonic
+
+
+@dataclass
+class TrackState:
+    label: str
+    last_center: tuple[float, float]
+    stable_frames: int = 0
+    moving_frames: int = 0
+    contact_count: int = 0
+    release_count: int = 0
+    picked: bool = False
+    carried: bool = False
+    move_emitted: bool = False
+    last_seen: float = field(default_factory=monotonic)
+    last_event_at: float = 0.0
+    last_landmark: str | None = None
+    confidence_history: deque = field(
+        default_factory=lambda: deque(maxlen=8)
+    )
+
+
+@dataclass
+class SemanticEvent:
+    timestamp: str
+    subject: str
+    action: str
+    landmark: str | None
+    confidence: float
+    details: str
+
+
+def distance(a, b):
+    return hypot(a[0]-b[0], a[1]-b[1])
+
+
+def box_distance(a, b):
+    ax1, ay1, ax2, ay2 = a
+    bx1, by1, bx2, by2 = b
+    dx = max(bx1-ax2, ax1-bx2, 0)
+    dy = max(by1-ay2, ay1-by2, 0)
+    return hypot(dx, dy)
+
+
+class EventRecognizer:
+    """Hand-aware temporal PICK/MOVE/PLACE recognizer."""
+
+    def __init__(
+        self, personal_objects, landmarks,
+        contact_distance_px=110, movement_distance_px=14,
+        min_moving_frames=3, contact_frames=3, release_frames=3,
+        stable_frames=8, min_event_confidence=0.55,
+        cooldown_seconds=2.0, emit_move=True, move_min_frames=8,
+    ):
+        self.personal_objects = set(personal_objects)
+        self.landmarks = set(landmarks)
+        self.contact_distance = contact_distance_px
+        self.movement_threshold = movement_distance_px
+        self.min_moving_frames = min_moving_frames
+        self.contact_required = contact_frames
+        self.release_required = release_frames
+        self.stable_required = stable_frames
+        self.min_confidence = min_event_confidence
+        self.cooldown = cooldown_seconds
+        self.emit_move = emit_move
+        self.move_min_frames = move_min_frames
+        self.tracks = {}
+
+    def update(self, detections, hands, landmark_matches=None):
+        now = monotonic()
+        objects = [d for d in detections if d.label in self.personal_objects]
+        landmark_matches = landmark_matches or {}
+        events = []
+
+        for d in objects:
+            state = self.tracks.get(d.track_id)
+            if state is None or state.label != d.label:
+                state = TrackState(d.label, d.center)
+                state.confidence_history.append(d.confidence)
+                self.tracks[d.track_id] = state
+                continue
+
+            movement = distance(d.center, state.last_center)
+            hand_near = any(
+                box_distance(d.xyxy, self._hand_box(h)) <= self.contact_distance
+                for h in hands
+            )
+
+            if movement >= self.movement_threshold:
+                state.moving_frames += 1
+                state.stable_frames = 0
+            else:
+                state.stable_frames += 1
+                state.moving_frames = 0
+
+            if hand_near:
+                state.contact_count += 1
+                state.release_count = 0
+            else:
+                state.release_count += 1
+                state.contact_count = max(0, state.contact_count - 1)
+
+            match = landmark_matches.get(d.track_id)
+            if match:
+                state.last_landmark = match.label
+
+            state.confidence_history.append(d.confidence)
+
+            if (
+                not state.picked
+                and state.contact_count >= self.contact_required
+                and state.moving_frames >= self.min_moving_frames
+                and self._can_emit(state, now)
+            ):
+                conf = self._pick_confidence(state, hands)
+                if conf >= self.min_confidence:
+                    events.append(self._event(
+                        d, "PICK", None, conf,
+                        "Sustained hand contact was followed by object movement."
+                    ))
+                    state.picked = True
+                    state.carried = True
+                    state.move_emitted = False
+                    state.last_event_at = now
+
+            if (
+                self.emit_move and state.picked and state.carried
+                and not state.move_emitted
+                and state.moving_frames >= self.move_min_frames
+                and self._can_emit(state, now)
+            ):
+                conf = self._pick_confidence(state, hands)
+                if conf >= self.min_confidence:
+                    events.append(self._event(
+                        d, "MOVE", state.last_landmark, conf,
+                        "The picked object continued moving."
+                    ))
+                    state.move_emitted = True
+                    state.last_event_at = now
+
+            if (
+                state.picked and state.carried
+                and state.release_count >= self.release_required
+                and state.stable_frames >= self.stable_required
+                and state.last_landmark in self.landmarks
+                and self._can_emit(state, now)
+            ):
+                match = landmark_matches.get(d.track_id)
+                conf = self._place_confidence(state, d.confidence, match)
+                if conf >= self.min_confidence:
+                    events.append(self._event(
+                        d, "PLACE", state.last_landmark, conf,
+                        f"Object was released and became stable near {state.last_landmark}."
+                    ))
+                    state.last_event_at = now
+                    state.picked = False
+                    state.carried = False
+                    state.move_emitted = False
+                    state.contact_count = 0
+                    state.release_count = 0
+
+            state.last_center = d.center
+            state.last_seen = now
+
+        for tid in list(self.tracks):
+            if now - self.tracks[tid].last_seen > 5.0:
+                self.tracks.pop(tid, None)
+
+        return events
+
+    @staticmethod
+    def _hand_box(hand):
+        cx, cy = hand.center
+        return (int(cx-35), int(cy-35), int(cx+35), int(cy+35))
+
+    def _pick_confidence(self, state, hands):
+        obj = sum(state.confidence_history) / max(1, len(state.confidence_history))
+        hand = max((float(h.confidence) for h in hands), default=0.0)
+        temporal = min(1.0, state.moving_frames / max(1, self.min_moving_frames))
+        return max(0.0, min(1.0, 0.50*obj + 0.30*hand + 0.20*temporal))
+
+    def _place_confidence(self, state, detection_conf, match):
+        obj = sum(state.confidence_history) / max(1, len(state.confidence_history))
+        landmark = float(match.confidence) if match else 0.55
+        stable = min(1.0, state.stable_frames / max(1, self.stable_required))
+        return max(0.0, min(1.0, 0.50*obj + 0.30*landmark + 0.20*stable))
+
+    def _can_emit(self, state, now):
+        return now - state.last_event_at >= self.cooldown
+
+    @staticmethod
+    def _event(detection, action, landmark, confidence, details):
+        timestamp = datetime.now(timezone.utc).astimezone().replace(
+            microsecond=0
+        ).isoformat()
+        return SemanticEvent(
+            timestamp=timestamp,
+            subject=detection.label,
+            action=action,
+            landmark=landmark,
+            confidence=round(float(confidence), 3),
+            details=details,
+        )
+
+
+
+################################################################################
+# FILE: edge_device2/src/inspect_memory.py
+################################################################################
+
+from __future__ import annotations
+
+from src.config import load_config, resolve_project_path
+from src.memory_store import MemoryStore
+
+cfg = load_config()
+db = resolve_project_path(cfg["database"].get("path", "data/memory.db"))
+store = MemoryStore(db)
+store.initialize()
+
+print(f"Database: {db}")
+print(f"Integrity: {store.integrity_check()}")
+print("-" * 100)
+
+for row in store.recent(50):
+    print(
+        f"{row['timestamp']} | {row['subject']:10s} | "
+        f"{row['action']:5s} | {row.get('landmark') or '-':10s} | "
+        f"{float(row.get('confidence') or 0):.2f} | "
+        f"{row.get('details') or ''}"
+    )
+
+
+
+################################################################################
+# FILE: edge_device2/src/main.py
+################################################################################
+
+from __future__ import annotations
+
+import argparse
+import logging
+import time
+
+import cv2
+
+from src.config import load_config, resolve_project_path
+from src.events.event_recognizer import EventRecognizer
+from src.memory_store import MemoryStore
+from src.perception.detector import WorldDetector
+from src.perception.hand_tracker import HandTracker
+from src.perception.landmarks import LandmarkAssociator
+
+
+LOGGER = logging.getLogger("edge")
+
+
+def setup_logging(level):
+    logging.basicConfig(
+        level=getattr(logging, str(level).upper(), logging.INFO),
+        format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
+    )
+
+
+def open_camera(index, width, height, fps, backend="auto"):
+    api = cv2.CAP_ANY
+    if backend.lower() == "dshow" and hasattr(cv2, "CAP_DSHOW"):
+        api = cv2.CAP_DSHOW
+    cap = cv2.VideoCapture(index, api)
+    if not cap.isOpened():
+        cap.release()
+        return None
+    cap.set(cv2.CAP_PROP_FRAME_WIDTH, width)
+    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
+    cap.set(cv2.CAP_PROP_FPS, fps)
+    return cap
+
+
+def draw_overlay(frame, detections, hands, events, draw_boxes=True, draw_hands=True):
+    if draw_boxes:
+        for d in detections:
+            x1, y1, x2, y2 = d.xyxy
+            cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
+            cv2.putText(
+                frame,
+                f"{d.label} #{d.track_id} {d.confidence:.2f}",
+                (x1, max(18, y1 - 7)),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.5,
+                (0, 255, 0),
+                2,
+                cv2.LINE_AA,
+            )
+
+    if draw_hands:
+        for h in hands:
+            cx, cy = map(int, h.center)
+            cv2.circle(frame, (cx, cy), 8, (255, 0, 255), -1)
+            cv2.putText(
+                frame,
+                f"hand {h.confidence:.2f}",
+                (cx + 8, cy),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.45,
+                (255, 0, 255),
+                1,
+                cv2.LINE_AA,
+            )
+
+    if events:
+        e = events[-1]
+        text = f"{e.action}: {e.subject}"
+        if e.landmark:
+            text += f" -> {e.landmark}"
+        cv2.rectangle(
+            frame, (10, 42), (min(frame.shape[1] - 10, 620), 84), (0, 0, 0), -1
+        )
+        cv2.putText(
+            frame,
+            text,
+            (20, 70),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.72,
+            (255, 255, 255),
+            2,
+            cv2.LINE_AA,
+        )
+
+
+def parse_args():
+    p = argparse.ArgumentParser(description="Robust landmark-aware edge perception")
+    p.add_argument("--config", default=None)
+    p.add_argument("--camera", type=int, default=None)
+    p.add_argument("--no-window", action="store_true")
+    p.add_argument("--no-hands", action="store_true")
+    p.add_argument("--no-events", action="store_true")
+    return p.parse_args()
+
+
+def main():
+    args = parse_args()
+    cfg = load_config(args.config)
+    setup_logging(cfg.get("application", {}).get("log_level", "INFO"))
+
+    cam_cfg = cfg["camera"]
+    camera_index = (
+        args.camera if args.camera is not None else int(cam_cfg.get("index", 0))
+    )
+    width, height, fps = (
+        int(cam_cfg.get("width", 1280)),
+        int(cam_cfg.get("height", 720)),
+        int(cam_cfg.get("fps", 30)),
+    )
+
+    obj_cfg = cfg["objects"]
+    personal = [str(x).lower() for x in obj_cfg["personal"]]
+    landmarks = [str(x).lower() for x in obj_cfg["landmarks"]]
+
+    p_cfg = cfg["perception"]
+    prompts = p_cfg.get("prompts") or {
+        x: [x] for x in personal + landmarks + ["person"]
+    }
+
+    detector = WorldDetector(
+        model_path=str(p_cfg.get("model", "yolov8s-world.pt")),
+        prompts=prompts,
+        confidence=float(p_cfg.get("confidence", 0.20)),
+        landmark_confidence=float(p_cfg.get("landmark_confidence", 0.18)),
+        iou=float(p_cfg.get("iou", 0.45)),
+        imgsz=int(p_cfg.get("imgsz", 960)),
+        device=str(p_cfg.get("device", "auto")),
+        aliases=obj_cfg.get("aliases", {}),
+        max_detections=int(p_cfg.get("max_detections", 40)),
+    )
+
+    hand_tracker = None
+    h_cfg = cfg["hands"]
+    if h_cfg.get("enabled", True) and not args.no_hands:
+        try:
+            hand_tracker = HandTracker(
+                resolve_project_path(
+                    h_cfg.get("model_path", "data/hand_landmarker.task")
+                ),
+                max_num_hands=int(h_cfg.get("max_num_hands", 2)),
+                min_detection_confidence=float(
+                    h_cfg.get("min_detection_confidence", 0.45)
+                ),
+                min_tracking_confidence=float(
+                    h_cfg.get("min_tracking_confidence", 0.45)
+                ),
+                auto_download=bool(h_cfg.get("auto_download", True)),
+            )
+        except Exception:
+            LOGGER.exception(
+                "Hand tracker could not start. Events will be disabled until it is available."
+            )
+            hand_tracker = None
+
+    e_cfg = cfg["events"]
+    recognizer = EventRecognizer(
+        personal_objects=personal,
+        landmarks=landmarks,
+        contact_distance_px=float(e_cfg.get("contact_distance_px", 110)),
+        movement_distance_px=float(e_cfg.get("movement_distance_px", 14)),
+        min_moving_frames=int(e_cfg.get("min_moving_frames", 3)),
+        contact_frames=int(e_cfg.get("contact_frames", 3)),
+        release_frames=int(e_cfg.get("release_frames", 3)),
+        stable_frames=int(e_cfg.get("stable_frames", 8)),
+        min_event_confidence=float(e_cfg.get("min_event_confidence", 0.55)),
+        cooldown_seconds=float(e_cfg.get("cooldown_seconds", 2.0)),
+        emit_move=bool(e_cfg.get("emit_move", True)),
+        move_min_frames=int(e_cfg.get("move_min_frames", 8)),
+    )
+
+    associator = LandmarkAssociator(
+        landmarks,
+        max_gap_px=float(e_cfg.get("landmark_max_gap_px", 180)),
+        vertical_tolerance_px=float(e_cfg.get("landmark_vertical_tolerance_px", 140)),
+        history_frames=int(e_cfg.get("landmark_history_frames", 8)),
+        confirmations=int(e_cfg.get("landmark_confirmations", 3)),
+    )
+
+    db_cfg = cfg["database"]
+    db = resolve_project_path(db_cfg.get("path", "data/memory.db"))
+    store = MemoryStore(db, float(db_cfg.get("dedup_window_seconds", 4.0)))
+    store.initialize()
+
+    display = cfg.get("display", {})
+    show = bool(display.get("show_window", True)) and not args.no_window
+
+    cap = None
+    failures = 0
+    frame_count = 0
+    start = time.monotonic()
+
+    LOGGER.info("Edge perception started | camera=%s | db=%s", camera_index, db)
+
+    try:
+        while True:
+            if cap is None:
+                cap = open_camera(
+                    camera_index,
+                    width,
+                    height,
+                    fps,
+                    str(cam_cfg.get("backend", "auto")),
+                )
+                if cap is None:
+                    failures += 1
+                    if failures > int(cam_cfg.get("reconnect_attempts", 5)):
+                        raise RuntimeError(
+                            f"Could not open camera {camera_index} after "
+                            f"{failures - 1} retries."
+                        )
+                    delay = float(cam_cfg.get("reconnect_delay_seconds", 1.0))
+                    LOGGER.warning("Camera unavailable; retry %d", failures)
+                    time.sleep(delay * min(failures, 5))
+                    continue
+                failures = 0
+                LOGGER.info("Camera connected")
+
+            ok, frame = cap.read()
+            if not ok or frame is None or frame.size == 0:
+                failures += 1
+                LOGGER.warning("Camera frame read failed; reconnecting")
+                cap.release()
+                cap = None
+                time.sleep(float(cam_cfg.get("reconnect_delay_seconds", 1.0)))
+                continue
+
+            try:
+                detections, _ = detector.infer(frame)
+            except Exception:
+                LOGGER.exception("Detector inference failed; skipping this frame")
+                detections = []
+
+            hands = []
+            if hand_tracker is not None:
+                try:
+                    hands = hand_tracker.infer(frame)
+                except Exception:
+                    LOGGER.exception("Hand tracking failed for this frame")
+
+            landmark_detections = [d for d in detections if d.label in landmarks]
+            landmark_matches = {}
+
+            for d in detections:
+                if d.label in personal:
+                    match = associator.update(d, landmark_detections)
+                    if match:
+                        landmark_matches[d.track_id] = match
+
+            events = []
+            if (
+                not args.no_events
+                and bool(e_cfg.get("enabled", True))
+                and hand_tracker is not None
+            ):
+                events = recognizer.update(detections, hands, landmark_matches)
+
+            for event in events:
+                try:
+                    event_id = store.add_event(
+                        event.timestamp,
+                        event.subject,
+                        event.action,
+                        event.landmark,
+                        event.confidence,
+                        event.details,
+                    )
+                    LOGGER.info(
+                        "MEMORY #%s | %s | %s | %s | %.2f",
+                        event_id,
+                        event.subject,
+                        event.action,
+                        event.landmark or "-",
+                        event.confidence,
+                    )
+                except Exception:
+                    LOGGER.exception("Could not store semantic event")
+
+            frame_count += 1
+
+            if show:
+                draw_overlay(
+                    frame,
+                    detections,
+                    hands,
+                    events,
+                    bool(display.get("draw_boxes", True)),
+                    bool(display.get("draw_hands", True)),
+                )
+                elapsed = max(0.001, time.monotonic() - start)
+                cv2.putText(
+                    frame,
+                    f"FPS {frame_count / elapsed:.1f}",
+                    (15, 25),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.65,
+                    (255, 255, 255),
+                    2,
+                    cv2.LINE_AA,
+                )
+                cv2.imshow("Privacy-Preserving Edge Perception", frame)
+
+                if (cv2.waitKey(1) & 0xFF) == ord("q"):
+                    break
+
+    except KeyboardInterrupt:
+        LOGGER.info("Stopping on Ctrl+C")
+    finally:
+        if cap is not None:
+            cap.release()
+        if hand_tracker is not None:
+            hand_tracker.close()
+        cv2.destroyAllWindows()
+        LOGGER.info("Edge perception stopped")
+
+
+if __name__ == "__main__":
+    main()
+
+
+
+################################################################################
+# FILE: edge_device2/src/memory_store.py
+################################################################################
+
+from __future__ import annotations
+
+import sqlite3
+from pathlib import Path
+
+
+class MemoryStore:
+    """SQLite semantic-memory store; never stores camera frames."""
+
+    def __init__(self, db_path, dedup_window_seconds=4.0):
+        self.db_path = Path(db_path)
+        self.db_path.parent.mkdir(parents=True, exist_ok=True)
+        self.dedup_window = float(dedup_window_seconds)
+
+    def connect(self):
+        conn = sqlite3.connect(self.db_path, timeout=10)
+        conn.row_factory = sqlite3.Row
+        conn.execute("PRAGMA busy_timeout=10000")
+        conn.execute("PRAGMA journal_mode=WAL")
+        conn.execute("PRAGMA synchronous=NORMAL")
+        conn.execute("PRAGMA foreign_keys=ON")
+        return conn
+
+    def initialize(self):
+        with self.connect() as conn:
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS memory_events (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    timestamp TEXT NOT NULL,
+                    subject TEXT NOT NULL,
+                    action TEXT NOT NULL,
+                    landmark TEXT,
+                    confidence REAL,
+                    details TEXT
+                )
+            """)
+            for index in (
+                "CREATE INDEX IF NOT EXISTS idx_memory_timestamp ON memory_events(timestamp)",
+                "CREATE INDEX IF NOT EXISTS idx_memory_subject ON memory_events(subject)",
+                "CREATE INDEX IF NOT EXISTS idx_memory_action ON memory_events(action)",
+                "CREATE INDEX IF NOT EXISTS idx_memory_landmark ON memory_events(landmark)",
+            ):
+                conn.execute(index)
+            conn.commit()
+
+    def add_event(self, timestamp, subject, action, landmark=None,
+                  confidence=None, details=None):
+        with self.connect() as conn:
+            # ISO timestamps are normalized by the event generator. julianday
+            # gives a robust time-window comparison in SQLite.
+            duplicate = conn.execute("""
+                SELECT id FROM memory_events
+                WHERE subject = ?
+                  AND action = ?
+                  AND COALESCE(landmark, '') = COALESCE(?, '')
+                  AND ABS(
+                      (julianday(timestamp) - julianday(?)) * 86400.0
+                  ) <= ?
+                ORDER BY id DESC
+                LIMIT 1
+            """, (
+                subject, action, landmark, timestamp, self.dedup_window
+            )).fetchone()
+
+            if duplicate:
+                return int(duplicate["id"])
+
+            cur = conn.execute("""
+                INSERT INTO memory_events
+                (timestamp, subject, action, landmark, confidence, details)
+                VALUES (?, ?, ?, ?, ?, ?)
+            """, (timestamp, subject, action, landmark, confidence, details))
+            conn.commit()
+            return int(cur.lastrowid)
+
+    def recent(self, limit=20):
+        limit = max(1, min(int(limit), 200))
+        with self.connect() as conn:
+            rows = conn.execute("""
+                SELECT id,timestamp,subject,action,landmark,confidence,details
+                FROM memory_events
+                ORDER BY timestamp DESC,id DESC
+                LIMIT ?
+            """, (limit,)).fetchall()
+        return [dict(r) for r in rows]
+
+    def search(self, query, limit=20):
+        query = query.strip()
+        if not query:
+            return self.recent(limit)
+        limit = max(1, min(int(limit), 200))
+        q = f"%{query}%"
+        with self.connect() as conn:
+            rows = conn.execute("""
+                SELECT id,timestamp,subject,action,landmark,confidence,details
+                FROM memory_events
+                WHERE subject LIKE ? OR action LIKE ?
+                   OR COALESCE(landmark,'') LIKE ?
+                   OR COALESCE(details,'') LIKE ?
+                ORDER BY timestamp DESC,id DESC
+                LIMIT ?
+            """, (q,q,q,q,limit)).fetchall()
+        return [dict(r) for r in rows]
+
+    def events(self, start=None, end=None, limit=100):
+        limit = max(1, min(int(limit), 500))
+        clauses, params = [], []
+        if start:
+            clauses.append("timestamp >= ?")
+            params.append(start)
+        if end:
+            clauses.append("timestamp <= ?")
+            params.append(end)
+        where = " WHERE " + " AND ".join(clauses) if clauses else ""
+        params.append(limit)
+        with self.connect() as conn:
+            rows = conn.execute(f"""
+                SELECT id,timestamp,subject,action,landmark,confidence,details
+                FROM memory_events
+                {where}
+                ORDER BY timestamp DESC,id DESC
+                LIMIT ?
+            """, params).fetchall()
+        return [dict(r) for r in rows]
+
+    def integrity_check(self):
+        with self.connect() as conn:
+            return conn.execute("PRAGMA integrity_check").fetchone()[0]
+
+
+
+################################################################################
+# FILE: edge_device2/src/perception/__init__.py
+################################################################################
+
+
+
+
+
+################################################################################
+# FILE: edge_device2/src/perception/detector.py
+################################################################################
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from typing import Any
+import re
+
+from ultralytics import YOLOWorld
+
+
+def _norm(text: str) -> str:
+    return re.sub(r"\s+", " ", text.strip().lower())
+
+
+@dataclass
+class Detection:
+    track_id: int
+    label: str
+    confidence: float
+    xyxy: tuple[int, int, int, int]
+    source_label: str | None = None
+
+    @property
+    def center(self):
+        x1, y1, x2, y2 = self.xyxy
+        return ((x1+x2)/2.0, (y1+y2)/2.0)
+
+    @property
+    def area(self):
+        return max(0, self.xyxy[2]-self.xyxy[0]) * max(0, self.xyxy[3]-self.xyxy[1])
+
+
+class WorldDetector:
+    """YOLO-World with rich prompts and canonical semantic labels."""
+
+    def __init__(self, model_path, prompts, confidence=0.20,
+                 landmark_confidence=0.18, iou=0.45, imgsz=960,
+                 device="auto", aliases=None, max_detections=40):
+        self.model = YOLOWorld(model_path)
+        self.prompts = {k: [_norm(x) for x in v] for k, v in prompts.items()}
+        self.confidence = confidence
+        self.landmark_confidence = landmark_confidence
+        self.iou = iou
+        self.imgsz = imgsz
+        self.device = None if device in ("auto", "", None) else device
+        self.aliases = {_norm(k): _norm(v) for k, v in (aliases or {}).items()}
+        self.max_detections = max_detections
+
+        flat = []
+        self.prompt_to_canonical = {}
+        for canonical, prompt_list in self.prompts.items():
+            for prompt in prompt_list:
+                flat.append(prompt)
+                self.prompt_to_canonical[prompt] = canonical
+
+        self.classes = flat
+        self.model.set_classes(flat)
+
+    def infer(self, frame) -> tuple[list[Detection], Any]:
+        kwargs = dict(
+            source=frame,
+            persist=True,
+            conf=self.confidence,
+            iou=self.iou,
+            imgsz=self.imgsz,
+            verbose=False,
+        )
+        if self.device is not None:
+            kwargs["device"] = self.device
+
+        result = self.model.track(**kwargs)[0]
+        if result.boxes is None:
+            return [], result
+
+        boxes = result.boxes
+        coords = boxes.xyxy.cpu().numpy()
+        confs = boxes.conf.cpu().numpy()
+        classes = boxes.cls.cpu().numpy().astype(int)
+        ids = boxes.id.cpu().numpy().astype(int) if boxes.id is not None else [-1] * len(coords)
+
+        out = []
+        landmark_labels = {"table", "desk", "shelf", "bed", "cupboard"}
+
+        for box, conf, cls_id, track_id in zip(coords, confs, classes, ids):
+            if int(track_id) < 0:
+                continue
+
+            raw = self.classes[int(cls_id)] if 0 <= int(cls_id) < len(self.classes) else str(cls_id)
+            label = self.prompt_to_canonical.get(_norm(raw), _norm(raw))
+            label = self.aliases.get(label, label)
+
+            threshold = self.landmark_confidence if label in landmark_labels else self.confidence
+            if float(conf) < threshold:
+                continue
+
+            x1, y1, x2, y2 = [int(round(v)) for v in box]
+            out.append(Detection(
+                track_id=int(track_id),
+                label=label,
+                confidence=float(conf),
+                xyxy=(x1, y1, x2, y2),
+                source_label=raw,
+            ))
+
+        out.sort(key=lambda d: d.confidence, reverse=True)
+        return out[:self.max_detections], result
+
+
+
+################################################################################
+# FILE: edge_device2/src/perception/hand_tracker.py
+################################################################################
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from pathlib import Path
+import logging
+import time
+import urllib.request
+
+import cv2
+import mediapipe as mp
+
+LOGGER = logging.getLogger(__name__)
+
+MODEL_URL = (
+    "https://storage.googleapis.com/mediapipe-models/"
+    "hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task"
+)
+
+
+@dataclass
+class HandObservation:
+    handedness: str
+    center: tuple[float, float]
+    confidence: float
+    points: list[tuple[float, float]]
+
+
+class HandTracker:
+    def __init__(self, model_path, max_num_hands=2,
+                 min_detection_confidence=0.45,
+                 min_tracking_confidence=0.45,
+                 auto_download=True):
+        self.model_path = Path(model_path)
+        self.max_num_hands = max_num_hands
+        self.min_detection_confidence = min_detection_confidence
+        self.min_tracking_confidence = min_tracking_confidence
+        self.landmarker = None
+        self.enabled = False
+        self._last_timestamp_ms = 0
+
+        if not self.model_path.exists():
+            if not auto_download:
+                raise FileNotFoundError(self.model_path)
+            self.model_path.parent.mkdir(parents=True, exist_ok=True)
+            LOGGER.info("Downloading MediaPipe hand model...")
+            urllib.request.urlretrieve(MODEL_URL, self.model_path)
+
+        self._initialize()
+        self.enabled = True
+
+    def _initialize(self):
+        from mediapipe.tasks import python
+        from mediapipe.tasks.python import vision
+
+        options = vision.HandLandmarkerOptions(
+            base_options=python.BaseOptions(
+                model_asset_path=str(self.model_path)
+            ),
+            running_mode=vision.RunningMode.VIDEO,
+            num_hands=self.max_num_hands,
+            min_hand_detection_confidence=self.min_detection_confidence,
+            min_hand_presence_confidence=self.min_detection_confidence,
+            min_tracking_confidence=self.min_tracking_confidence,
+        )
+        self.landmarker = vision.HandLandmarker.create_from_options(options)
+
+    def infer(self, frame):
+        if not self.enabled or self.landmarker is None:
+            return []
+
+        rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        image = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb)
+
+        timestamp_ms = max(
+            int(time.monotonic() * 1000),
+            self._last_timestamp_ms + 1,
+        )
+        self._last_timestamp_ms = timestamp_ms
+
+        result = self.landmarker.detect_for_video(image, timestamp_ms)
+        observations = []
+
+        for idx, hand_landmarks in enumerate(result.hand_landmarks or []):
+            points = [
+                (float(p.x * frame.shape[1]), float(p.y * frame.shape[0]))
+                for p in hand_landmarks
+            ]
+            cx = sum(p[0] for p in points) / len(points)
+            cy = sum(p[1] for p in points) / len(points)
+
+            handedness = "unknown"
+            confidence = 0.0
+            if result.handedness and idx < len(result.handedness):
+                handedness = result.handedness[idx][0].category_name or "unknown"
+                confidence = float(result.handedness[idx][0].score or 0.0)
+
+            observations.append(
+                HandObservation(handedness, (cx, cy), confidence, points)
+            )
+
+        return observations
+
+    def close(self):
+        if self.landmarker is not None:
+            try:
+                self.landmarker.close()
+            except Exception:
+                pass
+            self.landmarker = None
+            self.enabled = False
+
+
+
+################################################################################
+# FILE: edge_device2/src/perception/landmarks.py
+################################################################################
+
+from __future__ import annotations
+
+from collections import Counter, deque
+from dataclasses import dataclass
+from math import hypot
+
+
+@dataclass
+class LandmarkMatch:
+    label: str
+    confidence: float
+    gap_px: float
+
+
+def box_gap(a, b):
+    ax1, ay1, ax2, ay2 = a
+    bx1, by1, bx2, by2 = b
+    dx = max(bx1-ax2, ax1-bx2, 0)
+    dy = max(by1-ay2, ay1-by2, 0)
+    return hypot(dx, dy)
+
+
+def iou(a, b):
+    ax1, ay1, ax2, ay2 = a
+    bx1, by1, bx2, by2 = b
+    ix1, iy1 = max(ax1,bx1), max(ay1,by1)
+    ix2, iy2 = min(ax2,bx2), min(ay2,by2)
+    inter = max(0,ix2-ix1) * max(0,iy2-iy1)
+    aa = max(0,ax2-ax1) * max(0,ay2-ay1)
+    ba = max(0,bx2-bx1) * max(0,by2-by1)
+    union = aa + ba - inter
+    return inter/union if union else 0.0
+
+
+class LandmarkAssociator:
+    """Associates a personal object with a landmark over multiple frames."""
+
+    def __init__(self, landmarks, max_gap_px=180,
+                 vertical_tolerance_px=140, history_frames=8,
+                 confirmations=3):
+        self.landmarks = set(landmarks)
+        self.max_gap = max_gap_px
+        self.vertical_tolerance = vertical_tolerance_px
+        self.history_frames = history_frames
+        self.confirmations = confirmations
+        self.history = {}
+
+    def update(self, obj, landmark_detections):
+        candidates = []
+        ox1, oy1, ox2, oy2 = obj.xyxy
+        for lm in landmark_detections:
+            if lm.label not in self.landmarks:
+                continue
+            gap = box_gap(obj.xyxy, lm.xyxy)
+            lx1, ly1, lx2, ly2 = lm.xyxy
+            vertical_gap = ly1 - oy2
+
+            if gap <= self.max_gap and vertical_gap <= self.vertical_tolerance:
+                candidates.append((gap, -lm.confidence, lm))
+
+        if candidates:
+            _, _, best = min(candidates, key=lambda x: (x[0], x[1]))
+            hist = self.history.setdefault(
+                obj.track_id, deque(maxlen=self.history_frames)
+            )
+            hist.append(best.label)
+
+            counts = Counter(hist)
+            label, count = counts.most_common(1)[0]
+            if count >= self.confirmations:
+                return LandmarkMatch(
+                    label=label,
+                    confidence=best.confidence,
+                    gap_px=box_gap(obj.xyxy, best.xyxy),
+                )
+
+        return self._confirmed(obj.track_id)
+
+    def _confirmed(self, track_id):
+        hist = self.history.get(track_id)
+        if not hist:
+            return None
+        label, count = Counter(hist).most_common(1)[0]
+        if count >= self.confirmations:
+            return LandmarkMatch(label, 0.55, self.max_gap)
+        return None
+
+    def clear(self, track_id):
+        self.history.pop(track_id, None)
+
+
+
+################################################################################
+# FILE: edge_device2/tests/__init__.py
+################################################################################
+
+
+
+
+
+################################################################################
+# FILE: edge_device2/tests/test_event_recognizer.py
+################################################################################
+
+from types import SimpleNamespace
+from src.events.event_recognizer import EventRecognizer
+
+
+def det(label, tid, cx, cy, conf=0.9, size=40):
+    return SimpleNamespace(
+        label=label, track_id=tid, confidence=conf,
+        center=(cx,cy),
+        xyxy=(int(cx-size/2),int(cy-size/2),int(cx+size/2),int(cy+size/2)),
+    )
+
+
+def hand(cx, cy, conf=0.95):
+    return SimpleNamespace(center=(cx,cy), confidence=conf)
+
+
+def test_pick_requires_sustained_contact_and_motion():
+    r = EventRecognizer(
+        ["wallet"], ["table"],
+        contact_distance_px=80, movement_distance_px=10,
+        min_moving_frames=2, contact_frames=2,
+        release_frames=2, stable_frames=2, cooldown_seconds=0,
+    )
+
+    assert r.update([det("wallet",1,100,100)],[hand(100,100)],[]) == []
+    assert r.update([det("wallet",1,108,100)],[hand(108,100)],[]) == []
+    events = r.update([det("wallet",1,125,100)],[hand(125,100)],[])
+    assert any(e.action == "PICK" for e in events)
+
+
+def test_place_contains_landmark():
+    r = EventRecognizer(
+        ["wallet"], ["table"],
+        contact_distance_px=80, movement_distance_px=10,
+        min_moving_frames=1, contact_frames=1,
+        release_frames=2, stable_frames=2, cooldown_seconds=0,
+    )
+
+    r.update([det("wallet",1,100,100)],[hand(100,100)],{})
+    r.update([det("wallet",1,120,100)],[hand(120,100)],{})
+
+    lm = SimpleNamespace(label="table", confidence=0.9)
+    r.update([det("wallet",1,160,100)],[],{1:lm})
+    r.update([det("wallet",1,160,100)],[],{1:lm})
+    events = r.update([det("wallet",1,160,100)],[],{1:lm})
+
+    assert any(e.action == "PLACE" and e.landmark == "table" for e in events)
+
+
+
+################################################################################
+# FILE: edge_device2/weights/README.txt
+################################################################################
+
+Model weights are intentionally not bundled.
+
+You may place YOLO-World weights here, for example:
+
+weights/yolov8s-world.pt
+
+and set:
+
+perception:
+  model: weights/yolov8s-world.pt
+
+The MediaPipe hand model is downloaded automatically to:
+data/hand_landmarker.task
+
+
+
+################################################################################
+# FILE: export_project_for_chatgpt.py
+################################################################################
+
+from pathlib import Path
+
+# ============================================================
+# CONFIGURATION
+# ============================================================
+
+PROJECT_ROOT = Path(__file__).resolve().parent
+OUTPUT_FILE = PROJECT_ROOT / "project_context.txt"
+
+# Directories that should NOT be included
+EXCLUDED_DIRS = {
+    ".venv",
+    ".git",
+    ".pytest_cache",
+    "__pycache__",
+    "node_modules",
+    ".mypy_cache",
+    ".ruff_cache",
+}
+
+# Files that should NOT be included
+EXCLUDED_FILES = {
+    OUTPUT_FILE.name,
+    "project.zip",
+}
+
+# Text/code/config files worth including
+INCLUDED_EXTENSIONS = {
+    ".py",
+    ".yaml",
+    ".yml",
+    ".json",
+    ".toml",
+    ".ini",
+    ".cfg",
+    ".txt",
+    ".md",
+    ".rst",
+    ".html",
+    ".css",
+    ".js",
+    ".ts",
+    ".tsx",
+    ".jsx",
+    ".xml",
+    ".sql",
+    ".env",
+    ".gitignore",
+    ".dockerfile",
+}
+
+# Files with these extensions are explicitly ignored
+BINARY_EXTENSIONS = {
+    ".pt",
+    ".pth",
+    ".onnx",
+    ".task",
+    ".db",
+    ".sqlite",
+    ".sqlite3",
+    ".jpg",
+    ".jpeg",
+    ".png",
+    ".gif",
+    ".webp",
+    ".mp4",
+    ".avi",
+    ".mov",
+    ".wav",
+    ".mp3",
+    ".zip",
+    ".7z",
+    ".rar",
+    ".pdf",
+    ".exe",
+    ".dll",
+    ".so",
+}
+
+
+# ============================================================
+# HELPERS
+# ============================================================
+
+
+def should_exclude_directory(path: Path) -> bool:
+    return path.name in EXCLUDED_DIRS
+
+
+def should_include_file(path: Path) -> bool:
+    if path.name in EXCLUDED_FILES:
+        return False
+
+    if path.suffix.lower() in BINARY_EXTENSIONS:
+        return False
+
+    # Files such as .gitignore have no useful suffix
+    if path.name in {".gitignore", ".dockerignore"}:
+        return True
+
+    return path.suffix.lower() in INCLUDED_EXTENSIONS
+
+
+def safe_read_text(path: Path) -> str:
+    """
+    Read a text file safely.
+    Tries UTF-8 first, then falls back to replacement characters.
+    """
+    try:
+        return path.read_text(encoding="utf-8")
+    except UnicodeDecodeError:
+        return path.read_text(encoding="utf-8", errors="replace")
+    except Exception as exc:
+        return f"[ERROR READING FILE: {exc}]"
+
+
+def get_relative_path(path: Path) -> str:
+    return str(path.relative_to(PROJECT_ROOT)).replace("\\", "/")
+
+
+# ============================================================
+# DIRECTORY TREE
+# ============================================================
+
+
+def build_tree():
+    lines = []
+
+    lines.append("PROJECT DIRECTORY STRUCTURE")
+    lines.append("=" * 80)
+    lines.append("")
+
+    def walk(directory: Path, prefix=""):
+        try:
+            entries = sorted(
+                directory.iterdir(), key=lambda p: (not p.is_dir(), p.name.lower())
+            )
+        except PermissionError:
+            lines.append(prefix + "[Permission Denied]")
+            return
+
+        visible_entries = []
+
+        for entry in entries:
+            if entry.is_dir():
+                if should_exclude_directory(entry):
+                    continue
+                visible_entries.append(entry)
+
+            elif entry.is_file():
+                if should_include_file(entry):
+                    visible_entries.append(entry)
+
+        for index, entry in enumerate(visible_entries):
+            is_last = index == len(visible_entries) - 1
+            branch = "└── " if is_last else "├── "
+
+            if entry.is_dir():
+                lines.append(prefix + branch + entry.name + "/")
+
+                extension = "    " if is_last else "│   "
+                walk(entry, prefix + extension)
+
+            else:
+                lines.append(prefix + branch + entry.name)
+
+    lines.append(PROJECT_ROOT.name + "/")
+    walk(PROJECT_ROOT)
+
+    lines.append("")
+    lines.append("=" * 80)
+    lines.append("")
+
+    return lines
+
+
+# ============================================================
+# FILE CONTENTS
+# ============================================================
+
+
+def collect_files():
+    files = []
+
+    for path in PROJECT_ROOT.rglob("*"):
+        if not path.is_file():
+            continue
+
+        # Check whether any parent directory is excluded
+        relative_parts = path.relative_to(PROJECT_ROOT).parts
+
+        if any(part in EXCLUDED_DIRS for part in relative_parts):
+            continue
+
+        if should_include_file(path):
+            files.append(path)
+
+    return sorted(files, key=lambda p: get_relative_path(p).lower())
+
+
+def build_file_contents(files):
+    output = []
+
+    output.append("PROJECT FILE CONTENTS")
+    output.append("=" * 80)
+    output.append("")
+
+    for path in files:
+        relative_path = get_relative_path(path)
+
+        output.append("")
+        output.append("#" * 80)
+        output.append(f"# FILE: {relative_path}")
+        output.append("#" * 80)
+        output.append("")
+
+        content = safe_read_text(path)
+
+        output.append(content.rstrip())
+        output.append("")
+        output.append("")
+
+    return output
+
+
+# ============================================================
+# MAIN
+# ============================================================
+
+
+def main():
+
+    print("=" * 60)
+    print("PROJECT EXPORT TOOL")
+    print("=" * 60)
+
+    print(f"\nProject root:")
+    print(PROJECT_ROOT)
+
+    print("\nBuilding directory structure...")
+
+    tree = build_tree()
+
+    print("Collecting source/config/documentation files...")
+
+    files = collect_files()
+
+    print(f"Found {len(files)} text/code/config files.")
+
+    print("Extracting file contents...")
+
+    contents = build_file_contents(files)
+
+    final_output = []
+
+    # Header for ChatGPT
+    final_output.append(
+        """
+PROJECT CONTEXT EXPORT
+======================
+
+This file contains the directory structure and text/code/configuration
+contents of a software project.
+
+IMPORTANT:
+- The directory structure is listed first.
+- Each included file is identified using:
+    # FILE: relative/path/to/file
+- Binary files, model weights, databases, virtual environments,
+  caches, and archives are intentionally excluded.
+- Treat the contents below as the source of truth for understanding
+  the current implementation.
+- Do not assume that excluded binary/database files contain information
+  that is not represented in the extracted source/configuration.
+
+The purpose of this export is to allow an AI assistant to inspect
+the complete source-level project without requiring the original ZIP.
+""".strip()
+    )
+
+    final_output.append("")
+    final_output.append("")
+    final_output.extend(tree)
+    final_output.extend(contents)
+
+    OUTPUT_FILE.write_text("\n".join(final_output), encoding="utf-8")
+
+    print("\n" + "=" * 60)
+    print("DONE")
+    print("=" * 60)
+
+    print(f"\nOutput file:")
+    print(OUTPUT_FILE)
+
+    print(f"\nFiles included: {len(files)}")
+
+    print("\nExcluded:")
+    print("  - .venv/")
+    print("  - .git/")
+    print("  - __pycache__/")
+    print("  - .pytest_cache/")
+    print("  - model weights")
+    print("  - SQLite/database files")
+    print("  - images/videos")
+    print("  - ZIP/archive files")
+
+    print("\nYou can now upload:")
+    print("  project_context.txt")
+
+
+if __name__ == "__main__":
+    main()
+
+
+
+################################################################################
+# FILE: README.md
+################################################################################
+
+# Landmark-Based Episodic Memory Assistance
+
+Privacy-preserving three-component implementation:
+
+1. `edge_device/` — perception and semantic-memory storage.
+2. `server/` — retrieves semantic data, calls Gemini, and exposes the web API.
+3. `website/` — browser UI only; it never receives the Gemini API key or camera data.
+
+## Privacy boundary
+
+The intended production flow is:
+
+Camera/perception -> semantic events -> edge database
+                                      |
+                                      v
+                                  server
+                                      |
+                              relevant records
+                                      |
+                                      v
+                                  Gemini API
+                                      |
+                                      v
+                                  website
+
+Raw images/video are not part of the server/Gemini interface.
+
+## Prototype mode
+
+The edge component includes a small Python SQLite implementation so the complete system can be tested on a normal PC before moving the database/device interface to an ESP32-class device.
+
+The server can operate in:
+- `local` mode: read a local SQLite database (development only)
+- `http` mode: request semantic records from an edge HTTP endpoint (recommended architecture)
+
+## Quick start
+
+### 1. Server
+
+```powershell
+cd server
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+copy .env.example .env
+# Put GEMINI_API_KEY in .env
+python -m app.app
+```
+
+Open `website/index.html` through a static server, or configure the website API URL to the server.
+
+For the easiest local demo, from the project root:
+
+```powershell
+cd website
+python -m http.server 8080
+```
+
+Then open `http://127.0.0.1:8080`.
+
+### 2. Seed/test edge database
+
+```powershell
+cd edge_device
+python src/demo_seed.py
+```
+
+Then configure the server for local mode.
+
+## GitHub
+
+Do not commit `.env`, API keys, private databases, camera recordings, or generated artifacts. The supplied `.gitignore` protects these by default.
+
+
+
+################################################################################
+# FILE: server/app/__init__.py
+################################################################################
+
+
+
+
+
+################################################################################
+# FILE: server/app/app.py
+################################################################################
+
+from __future__ import annotations
+
+import os
+from pathlib import Path
+
+from dotenv import load_dotenv
+from flask import Flask, jsonify
+from flask_cors import CORS
+
+from app.edge.edge_client import EdgeMemoryClient
+from app.services.gemini_service import GeminiService
+from app.services.memory_service import MemoryService
+from app.routes.memory import create_memory_routes
+from app.routes.query import create_query_routes
+
+SERVER_ROOT = Path(__file__).resolve().parents[1]
+load_dotenv(SERVER_ROOT / ".env")
+
+app = Flask(__name__)
+CORS(app, resources={r"/api/*": {"origins": "*"}})
+
+mode = os.getenv("EDGE_MODE", "local")
+local_db = os.getenv(
+    "LOCAL_DB_PATH",
+    str(SERVER_ROOT.parent / "edge_device" / "data" / "memory.db")
+)
+edge_url = os.getenv("EDGE_BASE_URL", "http://127.0.0.1:9000")
+
+edge_client = EdgeMemoryClient(mode, local_db, edge_url)
+memory_service = MemoryService(edge_client)
+
+app.register_blueprint(create_memory_routes(memory_service))
+
+
+@app.get("/api/health")
+def health():
+    try:
+        edge = edge_client.health()
+        return jsonify({
+            "status": "ok",
+            "edge": edge,
+            "gemini_configured": bool(os.getenv("GEMINI_API_KEY"))
+        })
+    except Exception as exc:
+        return jsonify({"status": "error", "error": str(exc)}), 503
+
+
+# Initialize lazily so the server can still be inspected without an API key.
+@app.post("/api/query")
+def query():
+    from app.routes.query import create_query_routes
+    # Delegate using a temporary blueprint view to keep initialization lazy.
+    question = __import__("flask").request.get_json(silent=True).get("question", "").strip()
+    if not question:
+        return jsonify({"error": "question is required"}), 400
+    try:
+        gemini = GeminiService()
+        memories = memory_service.retrieve_for_question(question)
+        answer = gemini.answer(question, memories)
+        return jsonify({
+            "answer": answer,
+            "memories_used": memories,
+            "privacy": {
+                "raw_media_sent_to_gemini": False,
+                "semantic_records_sent_to_gemini": True
+            }
+        })
+    except Exception as exc:
+        return jsonify({"error": str(exc)}), 500
+
+
+if __name__ == "__main__":
+    app.run(
+        host=os.getenv("SERVER_HOST", "0.0.0.0"),
+        port=int(os.getenv("SERVER_PORT", "8000")),
+        debug=False,
+    )
+
+
+
+################################################################################
+# FILE: server/app/edge/__init__.py
+################################################################################
+
+
+
+
+
+################################################################################
+# FILE: server/app/edge/edge_client.py
+################################################################################
+
+from __future__ import annotations
+
+from pathlib import Path
+import requests
+
+# Local prototype import
+import sys
+
+EDGE_SRC = Path(__file__).resolve().parents[3] / "edge_device2" / "src"
+if str(EDGE_SRC) not in sys.path:
+    sys.path.insert(0, str(EDGE_SRC))
+
+from memory_store import MemoryStore
+
+
+class EdgeMemoryClient:
+    def __init__(self, mode: str, local_db_path: str, edge_base_url: str):
+        self.mode = mode.lower()
+        self.local = MemoryStore(Path(local_db_path))
+        self.edge_base_url = edge_base_url.rstrip("/")
+
+    def health(self) -> dict:
+        if self.mode == "local":
+            self.local.initialize()
+            return {"status": "ok", "mode": "local"}
+        r = requests.get(f"{self.edge_base_url}/health", timeout=5)
+        r.raise_for_status()
+        return r.json()
+
+    def recent(self, limit: int = 20) -> list[dict]:
+        if self.mode == "local":
+            return self.local.recent(limit)
+        r = requests.get(
+            f"{self.edge_base_url}/memory/recent",
+            params={"limit": limit},
+            timeout=5,
+        )
+        r.raise_for_status()
+        return r.json()["memories"]
+
+    def search(self, query: str, limit: int = 20) -> list[dict]:
+        if self.mode == "local":
+            return self.local.search(query, limit)
+        r = requests.get(
+            f"{self.edge_base_url}/memory/search",
+            params={"q": query, "limit": limit},
+            timeout=5,
+        )
+        r.raise_for_status()
+        return r.json()["memories"]
+
+
+
+################################################################################
+# FILE: server/app/routes/__init__.py
+################################################################################
+
+
+
+
+
+################################################################################
+# FILE: server/app/routes/memory.py
+################################################################################
+
+from flask import Blueprint, jsonify, request
+
+
+def create_memory_routes(memory_service):
+    bp = Blueprint("memory", __name__, url_prefix="/api/memories")
+
+    @bp.get("/recent")
+    def recent():
+        limit = request.args.get("limit", 20, type=int)
+        return jsonify({"memories": memory_service.edge.recent(limit)})
+
+    return bp
+
+
+
+################################################################################
+# FILE: server/app/routes/query.py
+################################################################################
+
+from flask import Blueprint, jsonify, request
+
+
+def create_query_routes(memory_service, gemini_service):
+    bp = Blueprint("query", __name__, url_prefix="/api")
+
+    @bp.post("/query")
+    def query():
+        payload = request.get_json(silent=True) or {}
+        question = str(payload.get("question", "")).strip()
+        if not question:
+            return jsonify({"error": "question is required"}), 400
+
+        memories = memory_service.retrieve_for_question(question)
+        answer = gemini_service.answer(question, memories)
+
+        return jsonify({
+            "answer": answer,
+            "memories_used": memories,
+            "privacy": {
+                "raw_media_sent_to_gemini": False,
+                "semantic_records_sent_to_gemini": True
+            }
+        })
+
+    return bp
+
+
+
+################################################################################
+# FILE: server/app/services/__init__.py
+################################################################################
+
+
+
+
+
+################################################################################
+# FILE: server/app/services/gemini_service.py
+################################################################################
+
+from __future__ import annotations
+
+import os
+from google import genai
+
+
+SYSTEM_INSTRUCTION = """You are a privacy-preserving episodic memory assistant.
+
+Answer only from the supplied semantic memory records and the user's question.
+Do not claim to have seen images, video, camera frames, or information that is
+not present in the records.
+If the records do not contain enough evidence, say that the available memory
+does not provide enough information.
+Prefer concise, direct answers and include relevant time/location details when
+available.
+"""
+
+
+class GeminiService:
+    def __init__(self):
+        api_key = os.getenv("GEMINI_API_KEY", "").strip()
+        if not api_key or api_key == "replace_me":
+            raise RuntimeError("GEMINI_API_KEY is not configured on the server.")
+        self.model = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+        self.client = genai.Client(api_key=api_key)
+
+    def answer(self, question: str, memories: list[dict]) -> str:
+        context_lines = []
+        for m in memories:
+            context_lines.append(
+                f"- time={m.get('timestamp')}; subject={m.get('subject')}; "
+                f"action={m.get('action')}; landmark={m.get('landmark')}; "
+                f"details={m.get('details')}"
+            )
+
+        context = "\n".join(context_lines) or "(No relevant memories found.)"
+        prompt = (
+            f"User question:\n{question}\n\n"
+            f"Retrieved semantic memories:\n{context}\n\n"
+            "Answer the question using only these memories."
+        )
+
+        response = self.client.models.generate_content(
+            model=self.model,
+            contents=prompt,
+            config={"system_instruction": SYSTEM_INSTRUCTION},
+        )
+        return (response.text or "").strip()
+
+
+
+################################################################################
+# FILE: server/app/services/memory_service.py
+################################################################################
+
+from __future__ import annotations
+
+import re
+
+STOPWORDS = {
+    "a",
+    "an",
+    "the",
+    "i",
+    "me",
+    "my",
+    "mine",
+    "where",
+    "what",
+    "when",
+    "did",
+    "do",
+    "was",
+    "were",
+    "is",
+    "are",
+    "to",
+    "of",
+    "on",
+    "in",
+    "at",
+    "with",
+    "and",
+    "or",
+    "please",
+    "tell",
+    "show",
+    "about",
+}
+
+
+class MemoryService:
+    def __init__(self, edge_client):
+        self.edge = edge_client
+
+    def retrieve_for_question(self, question: str, limit: int = 20) -> list[dict]:
+        words = re.findall(r"[A-Za-z0-9_-]+", question.lower())
+        keywords = [w for w in words if w not in STOPWORDS and len(w) > 2]
+
+        # First try specific keyword retrieval. Merge results while preserving order.
+        seen = set()
+        results = []
+        for keyword in keywords[:5]:
+            for item in self.edge.search(keyword, limit):
+                key = item.get("id")
+                if key not in seen:
+                    seen.add(key)
+                    results.append(item)
+                if len(results) >= limit:
+                    return results[:limit]
+
+        # Fall back to recent memories when the question has no searchable keyword.
+        if not results:
+            return self.edge.recent(limit)
+        return results[:limit]
+
+
+
+################################################################################
+# FILE: server/README.md
+################################################################################
+
+# Server
+
+The server is the trusted application layer between the website, edge device and Gemini.
+
+Responsibilities:
+1. receive the user's natural-language question
+2. retrieve only relevant semantic memories
+3. construct a grounded Gemini request
+4. return the answer to the website
+
+The Gemini API key stays on the server.
+
+## Configuration
+
+Copy `.env.example` to `.env` and set:
+
+```text
+GEMINI_API_KEY=...
+EDGE_MODE=local
+LOCAL_DB_PATH=../edge_device/data/memory.db
+```
+
+For the eventual edge device:
+
+```text
+EDGE_MODE=http
+EDGE_BASE_URL=http://EDGE_DEVICE_IP:9000
+```
+
+In `http` mode the server never opens the edge SQLite file. It calls the edge semantic-memory HTTP contract.
+
+## API
+
+- `GET /api/health`
+- `GET /api/memories/recent`
+- `POST /api/query`
+
+Example query:
+
+```json
+{"question": "Where did I leave my wallet?"}
+```
+
+
+
+################################################################################
+# FILE: server/requirements.txt
+################################################################################
+
+Flask>=3.0,<4
+flask-cors>=4.0,<7
+google-genai>=1.0,<2
+python-dotenv>=1.0,<2
+requests>=2.31,<3
+
+
+
+################################################################################
+# FILE: website/README.md
+################################################################################
+
+# Website
+
+Static frontend. It communicates only with the server API.
+
+It does not contain:
+- Gemini credentials
+- SQLite credentials
+- camera access
+- perception code
+
+For development:
+
+```powershell
+cd website
+python -m http.server 8080
+```
+
+Then open `http://127.0.0.1:8080`.
+
+
+
+################################################################################
+# FILE: website/static/css/style.css
+################################################################################
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: Inter, system-ui, -apple-system, Segoe UI, sans-serif;
+  background: #f4f6f8;
+  color: #17202a;
+}
+
+.container {
+  width: min(1050px, calc(100% - 32px));
+  margin: 42px auto;
+}
+
+header {
+  display: flex;
+  justify-content: space-between;
+  gap: 24px;
+  align-items: flex-start;
+  margin-bottom: 24px;
+}
+
+.eyebrow {
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: .12em;
+  margin: 0 0 8px;
+}
+
+h1 { margin: 0; font-size: clamp(30px, 5vw, 48px); }
+h2 { margin-top: 0; }
+
+.subtitle { color: #66727d; }
+
+.status {
+  padding: 9px 12px;
+  border: 1px solid #d8dee4;
+  border-radius: 999px;
+  background: white;
+  white-space: nowrap;
+}
+
+.card {
+  background: white;
+  border: 1px solid #dde3e8;
+  border-radius: 18px;
+  padding: 24px;
+  margin-bottom: 20px;
+  box-shadow: 0 8px 25px rgba(20, 30, 40, .05);
+}
+
+textarea {
+  width: 100%;
+  resize: vertical;
+  padding: 14px;
+  border: 1px solid #ccd4db;
+  border-radius: 12px;
+  font: inherit;
+}
+
+button {
+  margin-top: 12px;
+  border: 0;
+  border-radius: 10px;
+  padding: 11px 18px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+form button { width: 100%; }
+
+.secondary {
+  margin: 0;
+  background: #eef1f4;
+}
+
+.answer {
+  margin-top: 20px;
+  padding: 18px;
+  border-radius: 12px;
+  background: #f2f5f7;
+  line-height: 1.6;
+}
+
+.hidden { display: none; }
+
+.section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.memory-list { display: grid; gap: 10px; }
+
+.memory {
+  padding: 14px;
+  border: 1px solid #e1e6ea;
+  border-radius: 12px;
+}
+
+.memory .time { font-size: 12px; color: #71808c; }
+.memory strong { display: block; margin: 3px 0; }
+.memory .meta { color: #596671; font-size: 14px; }
+
+.privacy {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 24px;
+  color: #52606b;
+  font-size: 14px;
+  padding: 10px 4px 30px;
+}
+
+@media (max-width: 700px) {
+  header { flex-direction: column; }
+}
+
+
+
+################################################################################
+# FILE: website/static/js/app.js
+################################################################################
+
+// The website talks only to the server.
+// Keep this URL pointed at the backend; never put the Gemini API key here.
+const API_BASE = window.API_BASE || "http://127.0.0.1:8000/api";
+
+const $ = (id) => document.getElementById(id);
+
+function renderMemories(memories) {
+  if (!memories.length) {
+    $("memories").innerHTML = "<p>No semantic memories found.</p>";
+    return;
+  }
+
+  $("memories").innerHTML = memories.map(m => `
+    <article class="memory">
+      <div class="time">${escapeHtml(m.timestamp || "")}</div>
+      <strong>${escapeHtml(m.subject || "Unknown")} → ${escapeHtml(m.action || "")}</strong>
+      <div class="meta">
+        ${m.landmark ? "Landmark: " + escapeHtml(m.landmark) : ""}
+        ${m.details ? " · " + escapeHtml(m.details) : ""}
+      </div>
+    </article>
+  `).join("");
+}
+
+function escapeHtml(value) {
+  return String(value)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
+async function refreshMemories() {
+  try {
+    const res = await fetch(`${API_BASE}/memories/recent?limit=20`);
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Could not load memories");
+    renderMemories(data.memories || []);
+  } catch (err) {
+    $("memories").textContent = "Unable to load memories: " + err.message;
+  }
+}
+
+async function checkStatus() {
+  try {
+    const res = await fetch(`${API_BASE}/health`);
+    const data = await res.json();
+    $("status").textContent = res.ok ? "● Server connected" : "Server error";
+  } catch {
+    $("status").textContent = "● Server unavailable";
+  }
+}
+
+$("queryForm").addEventListener("submit", async (event) => {
+  event.preventDefault();
+
+  const question = $("question").value.trim();
+  if (!question) return;
+
+  $("answer").classList.remove("hidden");
+  $("answer").textContent = "Searching semantic memory…";
+
+  try {
+    const res = await fetch(`${API_BASE}/query`, {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({question})
+    });
+
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Query failed");
+
+    $("answer").textContent = data.answer;
+  } catch (err) {
+    $("answer").textContent = "Error: " + err.message;
+  }
+});
+
+$("refresh").addEventListener("click", refreshMemories);
+checkStatus();
+refreshMemories();
+
+
+
+################################################################################
+# FILE: website/templates/index.html
+################################################################################
+
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Episodic Memory Assistant</title>
+  <link rel="stylesheet" href="../static/css/style.css">
+</head>
+<body>
+  <main class="container">
+    <header>
+      <div>
+        <p class="eyebrow">PRIVACY-PRESERVING ROBOTIC PERCEPTION</p>
+        <h1>Episodic Memory Assistant</h1>
+        <p class="subtitle">Ask questions using semantic memories generated by the edge device.</p>
+      </div>
+      <div id="status" class="status">Checking server…</div>
+    </header>
+
+    <section class="card ask-card">
+      <h2>Ask your memory</h2>
+      <form id="queryForm">
+        <textarea id="question" rows="3"
+          placeholder="e.g. Where did I leave my wallet?"></textarea>
+        <button type="submit">Ask</button>
+      </form>
+      <div id="answer" class="answer hidden"></div>
+    </section>
+
+    <section class="card">
+      <div class="section-head">
+        <h2>Recent semantic memories</h2>
+        <button id="refresh" class="secondary">Refresh</button>
+      </div>
+      <div id="memories" class="memory-list">
+        Loading…
+      </div>
+    </section>
+
+    <section class="privacy">
+      <div>✓ Raw camera/video is not shown here</div>
+      <div>✓ Gemini receives semantic memory records only</div>
+      <div>✓ Gemini API key remains on the server</div>
+    </section>
+  </main>
+
+  <script src="../static/js/app.js"></script>
+</body>
+</html>
+

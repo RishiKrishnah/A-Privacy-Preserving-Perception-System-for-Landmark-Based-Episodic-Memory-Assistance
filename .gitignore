@@ -1,0 +1,42 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.env
+.env.example
+.env.*
+!.env.example
+server/.env.example
+
+# Runtime databases
+*.db
+*.sqlite
+*.sqlite3
+
+# Camera/media
+*.mp4
+*.avi
+*.mov
+*.jpg
+*.jpeg
+*.png
+
+# Logs
+*.log
+
+# OS/IDE
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+*.pt
+*.onnx
+*.task
+
+
+./edge_device
+./edge_device1
+
+server/.env.example
