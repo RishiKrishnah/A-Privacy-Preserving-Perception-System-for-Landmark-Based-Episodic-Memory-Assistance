@@ -9,6 +9,7 @@ import cv2
 from src.config import load_config, resolve_project_path
 from src.events.event_recognizer import EventRecognizer
 from src.memory_store import MemoryStore
+from src.cloud_sync import CloudSync
 from src.perception.detector import WorldDetector
 from src.perception.hand_tracker import HandTracker
 from src.perception.landmarks import LandmarkAssociator
@@ -187,6 +188,13 @@ def main():
     store = MemoryStore(db, float(db_cfg.get("dedup_window_seconds", 4.0)))
     store.initialize()
 
+    cloud_sync = CloudSync()
+
+    LOGGER.info(
+        "Cloud sync configured | server=%s",
+        cloud_sync.base_url,
+    )
+
     display = cfg.get("display", {})
     show = bool(display.get("show_window", True)) and not args.no_window
 
@@ -262,6 +270,7 @@ def main():
 
             for event in events:
                 try:
+                    # Always keep the semantic event locally first.
                     event_id = store.add_event(
                         event.timestamp,
                         event.subject,
@@ -270,6 +279,7 @@ def main():
                         event.confidence,
                         event.details,
                     )
+
                     LOGGER.info(
                         "MEMORY #%s | %s | %s | %s | %.2f",
                         event_id,
@@ -278,6 +288,11 @@ def main():
                         event.landmark or "-",
                         event.confidence,
                     )
+
+                    # Send ONLY the semantic event to Render.
+                    # No camera frame is transmitted.
+                    cloud_sync.send_event(event)
+
                 except Exception:
                     LOGGER.exception("Could not store semantic event")
 

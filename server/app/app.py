@@ -12,6 +12,7 @@ from app.services.gemini_service import GeminiService
 from app.services.memory_service import MemoryService
 from app.routes.memory import create_memory_routes
 from app.routes.query import create_query_routes
+from app.routes.edge_sync import create_edge_sync_routes
 
 SERVER_ROOT = Path(__file__).resolve().parents[1]
 load_dotenv(SERVER_ROOT / ".env")
@@ -21,8 +22,7 @@ CORS(app, resources={r"/api/*": {"origins": "*"}})
 
 mode = os.getenv("EDGE_MODE", "local")
 local_db = os.getenv(
-    "LOCAL_DB_PATH",
-    str(SERVER_ROOT.parent / "edge_device" / "data" / "memory.db")
+    "LOCAL_DB_PATH", str(SERVER_ROOT.parent / "edge_device" / "data" / "memory.db")
 )
 edge_url = os.getenv("EDGE_BASE_URL", "http://127.0.0.1:9000")
 
@@ -30,17 +30,20 @@ edge_client = EdgeMemoryClient(mode, local_db, edge_url)
 memory_service = MemoryService(edge_client)
 
 app.register_blueprint(create_memory_routes(memory_service))
+app.register_blueprint(create_edge_sync_routes(memory_service))
 
 
 @app.get("/api/health")
 def health():
     try:
         edge = edge_client.health()
-        return jsonify({
-            "status": "ok",
-            "edge": edge,
-            "gemini_configured": bool(os.getenv("GEMINI_API_KEY"))
-        })
+        return jsonify(
+            {
+                "status": "ok",
+                "edge": edge,
+                "gemini_configured": bool(os.getenv("GEMINI_API_KEY")),
+            }
+        )
     except Exception as exc:
         return jsonify({"status": "error", "error": str(exc)}), 503
 
@@ -49,22 +52,27 @@ def health():
 @app.post("/api/query")
 def query():
     from app.routes.query import create_query_routes
+
     # Delegate using a temporary blueprint view to keep initialization lazy.
-    question = __import__("flask").request.get_json(silent=True).get("question", "").strip()
+    question = (
+        __import__("flask").request.get_json(silent=True).get("question", "").strip()
+    )
     if not question:
         return jsonify({"error": "question is required"}), 400
     try:
         gemini = GeminiService()
         memories = memory_service.retrieve_for_question(question)
         answer = gemini.answer(question, memories)
-        return jsonify({
-            "answer": answer,
-            "memories_used": memories,
-            "privacy": {
-                "raw_media_sent_to_gemini": False,
-                "semantic_records_sent_to_gemini": True
+        return jsonify(
+            {
+                "answer": answer,
+                "memories_used": memories,
+                "privacy": {
+                    "raw_media_sent_to_gemini": False,
+                    "semantic_records_sent_to_gemini": True,
+                },
             }
-        })
+        )
     except Exception as exc:
         return jsonify({"error": str(exc)}), 500
 
