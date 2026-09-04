@@ -1,3 +1,0 @@
-database_path: data/memory.db
-edge_host: 0.0.0.0
-edge_port: 9000
