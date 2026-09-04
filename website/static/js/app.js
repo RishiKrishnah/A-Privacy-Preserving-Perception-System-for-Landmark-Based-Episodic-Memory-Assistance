@@ -1,6 +1,8 @@
 // The website talks only to the server.
 // Keep this URL pointed at the backend; never put the Gemini API key here.
-const API_BASE = window.API_BASE || "http://127.0.0.1:8000/api";
+const API_BASE =
+  window.API_BASE ||
+  "https://a-privacy-preserving-perception-system.onrender.com/api";
 
 const $ = (id) => document.getElementById(id);
 
@@ -10,7 +12,9 @@ function renderMemories(memories) {
     return;
   }
 
-  $("memories").innerHTML = memories.map(m => `
+  $("memories").innerHTML = memories
+    .map(
+      (m) => `
     <article class="memory">
       <div class="time">${escapeHtml(m.timestamp || "")}</div>
       <strong>${escapeHtml(m.subject || "Unknown")} → ${escapeHtml(m.action || "")}</strong>
@@ -19,7 +23,9 @@ function renderMemories(memories) {
         ${m.details ? " · " + escapeHtml(m.details) : ""}
       </div>
     </article>
-  `).join("");
+  `,
+    )
+    .join("");
 }
 
 function escapeHtml(value) {
@@ -64,8 +70,8 @@ $("queryForm").addEventListener("submit", async (event) => {
   try {
     const res = await fetch(`${API_BASE}/query`, {
       method: "POST",
-      headers: {"Content-Type": "application/json"},
-      body: JSON.stringify({question})
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ question }),
     });
 
     const data = await res.json();
