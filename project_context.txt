@@ -52,11 +52,9 @@ Landmark-Based-Episodic-Memory-Assistance_server-client/
 │   │   ├── __init__.py
 │   │   └── test_event_recognizer.py
 │   ├── weights/
-│   │   ├── clip/
-│   │   └── README.txt
+│   │   └── clip/
 │   ├── .gitignore
-│   ├── README.md
-│   └── requirements.txt
+│   └── README.md
 ├── server/
 │   ├── app/
 │   │   ├── edge/
@@ -70,11 +68,11 @@ Landmark-Based-Episodic-Memory-Assistance_server-client/
 │   │   ├── services/
 │   │   │   ├── __init__.py
 │   │   │   ├── gemini_service.py
-│   │   │   └── memory_service.py
+│   │   │   ├── memory_service.py
+│   │   │   └── turso_service.py
 │   │   ├── __init__.py
 │   │   └── app.py
-│   ├── README.md
-│   └── requirements.txt
+│   └── README.md
 ├── website/
 │   ├── static/
 │   │   ├── css/
@@ -774,21 +772,6 @@ edge API.
 
 Do not copy the old `edge_device/` code into this folder. This ZIP is intended
 to replace the contents of your currently used `edge_device1/`.
-
-
-
-################################################################################
-# FILE: edge_device2/requirements.txt
-################################################################################
-
-opencv-python>=4.8,<5
-numpy>=1.24,<3
-PyYAML>=6,<7
-Flask>=3,<4
-ultralytics>=8.3,<9
-mediapipe>=0.10,<0.11
-pytest>=8,<9
-requests>=2.31,<3
 
 
 
@@ -2159,26 +2142,6 @@ def test_place_contains_landmark():
 
 
 ################################################################################
-# FILE: edge_device2/weights/README.txt
-################################################################################
-
-Model weights are intentionally not bundled.
-
-You may place YOLO-World weights here, for example:
-
-weights/yolov8s-world.pt
-
-and set:
-
-perception:
-  model: weights/yolov8s-world.pt
-
-The MediaPipe hand model is downloaded automatically to:
-data/hand_landmarker.task
-
-
-
-################################################################################
 # FILE: export_project_for_chatgpt.py
 ################################################################################
 
@@ -2217,7 +2180,6 @@ INCLUDED_EXTENSIONS = {
     ".toml",
     ".ini",
     ".cfg",
-    ".txt",
     ".md",
     ".rst",
     ".html",
@@ -2628,13 +2590,7 @@ def home():
     )
 
 
-mode = os.getenv("EDGE_MODE", "local")
-local_db = os.getenv(
-    "LOCAL_DB_PATH", str(SERVER_ROOT.parent / "edge_device" / "data" / "memory.db")
-)
-edge_url = os.getenv("EDGE_BASE_URL", "http://127.0.0.1:9000")
-
-edge_client = EdgeMemoryClient(mode, local_db, edge_url)
+edge_client = EdgeMemoryClient()
 memory_service = MemoryService(edge_client)
 
 app.register_blueprint(create_memory_routes(memory_service))
@@ -2708,54 +2664,63 @@ if __name__ == "__main__":
 
 from __future__ import annotations
 
-from pathlib import Path
-import requests
-
-# Local prototype import
-import sys
-
-EDGE_SRC = Path(__file__).resolve().parents[3] / "edge_device2" / "src"
-if str(EDGE_SRC) not in sys.path:
-    sys.path.insert(0, str(EDGE_SRC))
-
-from memory_store import MemoryStore
+from app.services.turso_service import TursoMemoryStore
 
 
 class EdgeMemoryClient:
-    def __init__(self, mode: str, local_db_path: str, edge_base_url: str):
-        self.mode = mode.lower()
-        self.local = MemoryStore(Path(local_db_path))
-        self.edge_base_url = edge_base_url.rstrip("/")
+    """
+    Compatibility wrapper.
+
+    The API name is retained so the rest of the application
+    does not need major changes.
+
+    In production, semantic memories are stored in Turso.
+    """
+
+    def __init__(self):
+        self.turso = TursoMemoryStore()
+        self.turso.initialize()
 
     def health(self) -> dict:
-        if self.mode == "local":
-            self.local.initialize()
-            return {"status": "ok", "mode": "local"}
-        r = requests.get(f"{self.edge_base_url}/health", timeout=5)
-        r.raise_for_status()
-        return r.json()
+        integrity = self.turso.integrity_check()
+
+        return {
+            "status": "ok" if integrity == "ok" else "degraded",
+            "mode": "turso",
+            "database": "available" if integrity == "ok" else "degraded",
+        }
 
     def recent(self, limit: int = 20) -> list[dict]:
-        if self.mode == "local":
-            return self.local.recent(limit)
-        r = requests.get(
-            f"{self.edge_base_url}/memory/recent",
-            params={"limit": limit},
-            timeout=5,
-        )
-        r.raise_for_status()
-        return r.json()["memories"]
+        return self.turso.recent(limit)
 
     def search(self, query: str, limit: int = 20) -> list[dict]:
-        if self.mode == "local":
-            return self.local.search(query, limit)
-        r = requests.get(
-            f"{self.edge_base_url}/memory/search",
-            params={"q": query, "limit": limit},
-            timeout=5,
+        return self.turso.search(query, limit)
+
+    def events(
+        self,
+        start=None,
+        end=None,
+        limit: int = 100,
+    ) -> list[dict]:
+        return self.turso.events(start, end, limit)
+
+    def add_event(
+        self,
+        timestamp,
+        subject,
+        action,
+        landmark=None,
+        confidence=None,
+        details=None,
+    ):
+        return self.turso.add_event(
+            timestamp=timestamp,
+            subject=subject,
+            action=action,
+            landmark=landmark,
+            confidence=confidence,
+            details=details,
         )
-        r.raise_for_status()
-        return r.json()["memories"]
 
 
 
@@ -2787,11 +2752,14 @@ def create_edge_sync_routes(memory_service):
 
     @bp.post("/events")
     def receive_event():
-        # Optional shared secret.
+
         expected_key = os.getenv("EDGE_SYNC_API_KEY", "").strip()
 
         if expected_key:
-            received_key = request.headers.get("X-Edge-API-Key", "")
+            received_key = request.headers.get(
+                "X-Edge-API-Key",
+                "",
+            )
 
             if received_key != expected_key:
                 return jsonify({"error": "unauthorized"}), 401
@@ -2829,10 +2797,7 @@ def create_edge_sync_routes(memory_service):
             if confidence is not None:
                 confidence = float(confidence)
 
-            # Store through the existing memory service / edge client.
-            memory_service.edge.local.initialize()
-
-            event_id = memory_service.edge.local.add_event(
+            event_id = memory_service.edge.add_event(
                 timestamp=timestamp,
                 subject=subject,
                 action=action,
@@ -2845,6 +2810,7 @@ def create_edge_sync_routes(memory_service):
                 {
                     "status": "ok",
                     "event_id": event_id,
+                    "database": "turso",
                     "raw_media_received": False,
                 }
             ), 201
@@ -3047,6 +3013,278 @@ class MemoryService:
 
 
 ################################################################################
+# FILE: server/app/services/turso_service.py
+################################################################################
+
+from __future__ import annotations
+
+import os
+from typing import Any
+
+import libsql_client
+
+
+class TursoMemoryStore:
+    """
+    Persistent semantic-memory store backed by Turso/libSQL.
+
+    Turso credentials are read only from the Render/server environment.
+    The edge device never receives these credentials.
+    """
+
+    def __init__(self):
+        self.url = os.getenv("TURSO_DATABASE_URL", "").strip()
+        self.auth_token = os.getenv("TURSO_AUTH_TOKEN", "").strip()
+
+        if not self.url:
+            raise RuntimeError("TURSO_DATABASE_URL is not configured.")
+
+        if not self.auth_token:
+            raise RuntimeError("TURSO_AUTH_TOKEN is not configured.")
+
+    def _connect(self):
+        return libsql_client.create_client_sync(
+            self.url,
+            auth_token=self.auth_token,
+        )
+
+    def initialize(self):
+        with self._connect() as client:
+            client.execute(
+                """
+                CREATE TABLE IF NOT EXISTS memory_events (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    timestamp TEXT NOT NULL,
+                    subject TEXT NOT NULL,
+                    action TEXT NOT NULL,
+                    landmark TEXT,
+                    confidence REAL,
+                    details TEXT
+                )
+                """
+            )
+
+            client.execute(
+                """
+                CREATE INDEX IF NOT EXISTS idx_memory_timestamp
+                ON memory_events(timestamp)
+                """
+            )
+
+            client.execute(
+                """
+                CREATE INDEX IF NOT EXISTS idx_memory_subject
+                ON memory_events(subject)
+                """
+            )
+
+            client.execute(
+                """
+                CREATE INDEX IF NOT EXISTS idx_memory_action
+                ON memory_events(action)
+                """
+            )
+
+            client.execute(
+                """
+                CREATE INDEX IF NOT EXISTS idx_memory_landmark
+                ON memory_events(landmark)
+                """
+            )
+
+    def add_event(
+        self,
+        timestamp,
+        subject,
+        action,
+        landmark=None,
+        confidence=None,
+        details=None,
+    ):
+        with self._connect() as client:
+            result = client.execute(
+                """
+                SELECT id
+                FROM memory_events
+                WHERE subject = ?
+                  AND action = ?
+                  AND COALESCE(landmark, '') = COALESCE(?, '')
+                  AND ABS(
+                      (julianday(timestamp) - julianday(?)) * 86400.0
+                  ) <= 4.0
+                ORDER BY id DESC
+                LIMIT 1
+                """,
+                [
+                    subject,
+                    action,
+                    landmark,
+                    timestamp,
+                ],
+            )
+
+            if result.rows:
+                return int(result.rows[0][0])
+
+            result = client.execute(
+                """
+                INSERT INTO memory_events
+                (
+                    timestamp,
+                    subject,
+                    action,
+                    landmark,
+                    confidence,
+                    details
+                )
+                VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                [
+                    timestamp,
+                    subject,
+                    action,
+                    landmark,
+                    confidence,
+                    details,
+                ],
+            )
+
+            # Retrieve the inserted row ID.
+            result = client.execute(
+                """
+                SELECT id
+                FROM memory_events
+                ORDER BY id DESC
+                LIMIT 1
+                """
+            )
+
+            return int(result.rows[0][0])
+
+    def recent(self, limit=20):
+        limit = max(1, min(int(limit), 200))
+
+        with self._connect() as client:
+            result = client.execute(
+                """
+                SELECT
+                    id,
+                    timestamp,
+                    subject,
+                    action,
+                    landmark,
+                    confidence,
+                    details
+                FROM memory_events
+                ORDER BY timestamp DESC, id DESC
+                LIMIT ?
+                """,
+                [limit],
+            )
+
+            return self._rows_to_dicts(result)
+
+    def search(self, query, limit=20):
+        query = str(query).strip()
+
+        if not query:
+            return self.recent(limit)
+
+        limit = max(1, min(int(limit), 200))
+        q = f"%{query}%"
+
+        with self._connect() as client:
+            result = client.execute(
+                """
+                SELECT
+                    id,
+                    timestamp,
+                    subject,
+                    action,
+                    landmark,
+                    confidence,
+                    details
+                FROM memory_events
+                WHERE subject LIKE ?
+                   OR action LIKE ?
+                   OR COALESCE(landmark, '') LIKE ?
+                   OR COALESCE(details, '') LIKE ?
+                ORDER BY timestamp DESC, id DESC
+                LIMIT ?
+                """,
+                [q, q, q, q, limit],
+            )
+
+            return self._rows_to_dicts(result)
+
+    def events(self, start=None, end=None, limit=100):
+        limit = max(1, min(int(limit), 500))
+
+        clauses = []
+        params: list[Any] = []
+
+        if start:
+            clauses.append("timestamp >= ?")
+            params.append(start)
+
+        if end:
+            clauses.append("timestamp <= ?")
+            params.append(end)
+
+        where = ""
+
+        if clauses:
+            where = "WHERE " + " AND ".join(clauses)
+
+        params.append(limit)
+
+        with self._connect() as client:
+            result = client.execute(
+                f"""
+                SELECT
+                    id,
+                    timestamp,
+                    subject,
+                    action,
+                    landmark,
+                    confidence,
+                    details
+                FROM memory_events
+                {where}
+                ORDER BY timestamp DESC, id DESC
+                LIMIT ?
+                """,
+                params,
+            )
+
+            return self._rows_to_dicts(result)
+
+    def integrity_check(self):
+        with self._connect() as client:
+            result = client.execute("PRAGMA integrity_check")
+
+            if not result.rows:
+                return "unknown"
+
+            return str(result.rows[0][0])
+
+    @staticmethod
+    def _rows_to_dicts(result):
+        columns = [
+            "id",
+            "timestamp",
+            "subject",
+            "action",
+            "landmark",
+            "confidence",
+            "details",
+        ]
+
+        return [dict(zip(columns, row)) for row in result.rows]
+
+
+
+################################################################################
 # FILE: server/README.md
 ################################################################################
 
@@ -3092,19 +3330,6 @@ Example query:
 ```json
 {"question": "Where did I leave my wallet?"}
 ```
-
-
-
-################################################################################
-# FILE: server/requirements.txt
-################################################################################
-
-Flask>=3.0,<4
-flask-cors>=4.0,<7
-google-genai>=1.0,<2
-python-dotenv>=1.0,<2
-requests>=2.31,<3
-gunicorn>=21,<24
 
 
 

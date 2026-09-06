@@ -33,7 +33,6 @@ INCLUDED_EXTENSIONS = {
     ".toml",
     ".ini",
     ".cfg",
-    ".txt",
     ".md",
     ".rst",
     ".html",
