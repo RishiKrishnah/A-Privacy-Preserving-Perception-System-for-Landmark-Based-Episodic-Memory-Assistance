@@ -1,50 +1,59 @@
 from __future__ import annotations
 
-from pathlib import Path
-import requests
-
-# Local prototype import
-import sys
-
-EDGE_SRC = Path(__file__).resolve().parents[3] / "edge_device2" / "src"
-if str(EDGE_SRC) not in sys.path:
-    sys.path.insert(0, str(EDGE_SRC))
-
-from memory_store import MemoryStore
+from app.services.turso_service import TursoMemoryStore
 
 
 class EdgeMemoryClient:
-    def __init__(self, mode: str, local_db_path: str, edge_base_url: str):
-        self.mode = mode.lower()
-        self.local = MemoryStore(Path(local_db_path))
-        self.edge_base_url = edge_base_url.rstrip("/")
+    """
+    Compatibility wrapper.
+
+    The API name is retained so the rest of the application
+    does not need major changes.
+
+    In production, semantic memories are stored in Turso.
+    """
+
+    def __init__(self):
+        self.turso = TursoMemoryStore()
+        self.turso.initialize()
 
     def health(self) -> dict:
-        if self.mode == "local":
-            self.local.initialize()
-            return {"status": "ok", "mode": "local"}
-        r = requests.get(f"{self.edge_base_url}/health", timeout=5)
-        r.raise_for_status()
-        return r.json()
+        integrity = self.turso.integrity_check()
+
+        return {
+            "status": "ok" if integrity == "ok" else "degraded",
+            "mode": "turso",
+            "database": "available" if integrity == "ok" else "degraded",
+        }
 
     def recent(self, limit: int = 20) -> list[dict]:
-        if self.mode == "local":
-            return self.local.recent(limit)
-        r = requests.get(
-            f"{self.edge_base_url}/memory/recent",
-            params={"limit": limit},
-            timeout=5,
-        )
-        r.raise_for_status()
-        return r.json()["memories"]
+        return self.turso.recent(limit)
 
     def search(self, query: str, limit: int = 20) -> list[dict]:
-        if self.mode == "local":
-            return self.local.search(query, limit)
-        r = requests.get(
-            f"{self.edge_base_url}/memory/search",
-            params={"q": query, "limit": limit},
-            timeout=5,
+        return self.turso.search(query, limit)
+
+    def events(
+        self,
+        start=None,
+        end=None,
+        limit: int = 100,
+    ) -> list[dict]:
+        return self.turso.events(start, end, limit)
+
+    def add_event(
+        self,
+        timestamp,
+        subject,
+        action,
+        landmark=None,
+        confidence=None,
+        details=None,
+    ):
+        return self.turso.add_event(
+            timestamp=timestamp,
+            subject=subject,
+            action=action,
+            landmark=landmark,
+            confidence=confidence,
+            details=details,
         )
-        r.raise_for_status()
-        return r.json()["memories"]

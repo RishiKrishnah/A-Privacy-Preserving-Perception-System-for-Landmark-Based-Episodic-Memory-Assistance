@@ -14,11 +14,14 @@ def create_edge_sync_routes(memory_service):
 
     @bp.post("/events")
     def receive_event():
-        # Optional shared secret.
+
         expected_key = os.getenv("EDGE_SYNC_API_KEY", "").strip()
 
         if expected_key:
-            received_key = request.headers.get("X-Edge-API-Key", "")
+            received_key = request.headers.get(
+                "X-Edge-API-Key",
+                "",
+            )
 
             if received_key != expected_key:
                 return jsonify({"error": "unauthorized"}), 401
@@ -56,10 +59,7 @@ def create_edge_sync_routes(memory_service):
             if confidence is not None:
                 confidence = float(confidence)
 
-            # Store through the existing memory service / edge client.
-            memory_service.edge.local.initialize()
-
-            event_id = memory_service.edge.local.add_event(
+            event_id = memory_service.edge.add_event(
                 timestamp=timestamp,
                 subject=subject,
                 action=action,
@@ -72,6 +72,7 @@ def create_edge_sync_routes(memory_service):
                 {
                     "status": "ok",
                     "event_id": event_id,
+                    "database": "turso",
                     "raw_media_received": False,
                 }
             ), 201

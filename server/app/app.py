@@ -36,13 +36,7 @@ def home():
     )
 
 
-mode = os.getenv("EDGE_MODE", "local")
-local_db = os.getenv(
-    "LOCAL_DB_PATH", str(SERVER_ROOT.parent / "edge_device" / "data" / "memory.db")
-)
-edge_url = os.getenv("EDGE_BASE_URL", "http://127.0.0.1:9000")
-
-edge_client = EdgeMemoryClient(mode, local_db, edge_url)
+edge_client = EdgeMemoryClient()
 memory_service = MemoryService(edge_client)
 
 app.register_blueprint(create_memory_routes(memory_service))
